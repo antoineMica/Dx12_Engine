@@ -113,9 +113,11 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="DX12Renderer.cpp" />
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="DX12Renderer.h" />
     <ClInclude Include="ThreadPool.hpp" />
     <ClInclude Include="ThreadSafeQueue.hpp" />
   </ItemGroup>
