@@ -13,24 +13,66 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="Core">
+      <UniqueIdentifier>{8ff18ccb-9428-44aa-b57c-049bc2fbfea2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Renderer">
+      <UniqueIdentifier>{982c0eb2-a76e-4b88-ba28-ac05df94654d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Core\Window">
+      <UniqueIdentifier>{130ed2c6-dac9-45c1-ac69-9016cf991f25}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Core\InputSystem">
+      <UniqueIdentifier>{92fd64fc-ec7c-42a5-bcca-61a50a9e26d6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Core\Interfaces">
+      <UniqueIdentifier>{1d2bd486-54c6-4f22-9216-879f67098bc3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Core\ThreadPool">
+      <UniqueIdentifier>{77129444-b270-4f87-9be6-7750c2c4efa8}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="DX12Renderer.cpp">
+      <Filter>Renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="Win32Window.cpp">
+      <Filter>Core\Window</Filter>
+    </ClCompile>
+    <ClCompile Include="InputSystem.cpp">
+      <Filter>Core\InputSystem</Filter>
+    </ClCompile>
+    <ClCompile Include="App.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="ThreadSafeQueue.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="ThreadPool.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="DX12Renderer.h">
-      <Filter>Header Files</Filter>
+      <Filter>Renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="Win32Window.h">
+      <Filter>Core\Window</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreHeader.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="InputSystem.h">
+      <Filter>Core\InputSystem</Filter>
+    </ClInclude>
+    <ClInclude Include="ISystem.h">
+      <Filter>Core\Interfaces</Filter>
+    </ClInclude>
+    <ClInclude Include="ThreadPool.h">
+      <Filter>Core\ThreadPool</Filter>
+    </ClInclude>
+    <ClInclude Include="ThreadSafeQueue.h">
+      <Filter>Core\ThreadPool</Filter>
+    </ClInclude>
+    <ClInclude Include="App.h">
+      <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

@@ -1,4 +1,5 @@
-#include "ThreadPool.hpp"
+#include "ThreadPool.h"
+#include "App.h"
 #include <iostream>
 
 std::mutex mutexLockPrint;
@@ -10,8 +11,7 @@ void PrintJobId(uint32_t toPrint)
 	std::cout << toPrint << std::endl;
 }
 
-
-int main()
+void TestThread()
 {
 	std::chrono::high_resolution_clock saturationTimer;
 	const auto startTime = saturationTimer.now();
@@ -31,7 +31,24 @@ int main()
 	const auto dt = saturationTimer.now() - startTime;
 
 	std::cout << dt.count() << std::endl;
-	
+}
 
+
+void RunApp(HINSTANCE instance)
+{
+	App * pApp = new App();
+
+	pApp->Initialize();
+
+	pApp->Update(0.032f);
+
+	pApp->Shutdown();
+}
+
+
+
+int WINAPI WinMain(HINSTANCE instance, HINSTANCE hPreviousInstance, LPSTR, int show)
+{
+	RunApp(instance);
 	return 0;
 }

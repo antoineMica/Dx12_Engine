@@ -4,7 +4,7 @@
 */
 #pragma once
 
-#include "ThreadSafeQueue.hpp"
+#include "ThreadSafeQueue.h"
 
 #include <algorithm>
 #include <atomic>
