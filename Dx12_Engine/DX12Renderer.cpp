@@ -10,7 +10,10 @@ DX12Renderer::DX12Renderer(float wWidth, float wHeight)
 	windowWidth_ = wWidth;
 	windowHeight_ = wHeight;
 	useWarpDevice_ = false;
-	numOfGPUs_ = 0;
+
+	//create pointer
+	dxBase_ = std::make_shared<DX12Base>();
+	swapChain_ = std::make_shared<SwapChain>();
 }
 
 
@@ -21,63 +24,19 @@ DX12Renderer::~DX12Renderer()
 
 void DX12Renderer::Initialize()
 {
-	std::uint32_t dxgiFactoryFlags = 0;
 
-#if defined(_DEBUG)
-	if (SUCCEEDED(D3D12GetDebugInterface(__uuidof(debugController_), (void**)&(debugController_))))
-	{
-		debugController_->EnableDebugLayer();
-
-		dxgiFactoryFlags |= DXGI_CREATE_FACTORY_DEBUG;
-	}
-#endif
-
-	ThrowIfFailed(CreateDXGIFactory2(dxgiFactoryFlags, __uuidof(dxgiFactory_), (void**)&(dxgiFactory_)));
-
-	//also created device
-	InitGPUS();
-
+	dxBase_->Initialize();
 
 	// Describe and create the command queue.
 	D3D12_COMMAND_QUEUE_DESC queueDesc = {};
 	queueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
 	queueDesc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
 
-	ThrowIfFailed(device_->CreateCommandQueue(&queueDesc, __uuidof(commandQueue_), (void**)&(commandQueue_)));
+	ThrowIfFailed(dxBase_->device_->CreateCommandQueue(&queueDesc, __uuidof(commandQueue_), (void**)&(commandQueue_)));
 	
-	//Add Swapchain
-	{
-		// Describe and create the swap chain.
-		DXGI_SWAP_CHAIN_DESC1 swapChainDesc = {};
-		swapChainDesc.BufferCount = frameCount_;
-		swapChainDesc.Width = windowWidth_;
-		swapChainDesc.Height = windowHeight_;
-		swapChainDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-		swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
-		swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
-		swapChainDesc.SampleDesc.Count = 1;
-
-		IDXGISwapChain1* swapChain;
-
-		ThrowIfFailed(dxgiFactory_->CreateSwapChainForHwnd(
-			commandQueue_.get(),		// Swap chain needs the queue so that it can force a flush on it.
-			gWindow->GetHandle(),
-			&swapChainDesc,
-			nullptr,
-			nullptr,
-			&swapChain
-		));
-
-		// This sample does not support fullscreen transitions.
-		ThrowIfFailed(dxgiFactory_->MakeWindowAssociation(gWindow->GetHandle(), DXGI_MWA_NO_ALT_ENTER));
-
-
-		HRESULT hres = swapChain->QueryInterface(__uuidof(swapChain_), (void**)&(swapChain_));
-		ThrowIfFailed(hres);
-		swapChain->Release();
-	}
+	swapChain_->Initialize(frameCount_,windowWidth_, windowHeight_,commandQueue_,dxBase_);
 	
-	frameIndex_ = swapChain_->GetCurrentBackBufferIndex();
+	frameIndex_ = swapChain_->dxSwapChain_->GetCurrentBackBufferIndex();
 
 	// Create descriptor heaps.
 	{
@@ -87,9 +46,9 @@ void DX12Renderer::Initialize()
 		rtvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
 		rtvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
 
-		ThrowIfFailed(device_->CreateDescriptorHeap(&rtvHeapDesc, __uuidof(descriptorHeap_), (void**)&(descriptorHeap_)));
+		ThrowIfFailed(dxBase_->device_->CreateDescriptorHeap(&rtvHeapDesc, __uuidof(descriptorHeap_), (void**)&(descriptorHeap_)));
 
-		descriptorHeapSize_ = device_->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+		descriptorHeapSize_ = dxBase_->device_->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 	}
 
 	// Create frame resources.
@@ -100,17 +59,17 @@ void DX12Renderer::Initialize()
 		// Create a RTV for each frame.
 		for (UINT n = 0; n < frameCount_; n++)
 		{
-			ThrowIfFailed(swapChain_->GetBuffer(n, __uuidof(renderTargets_[n]), (void**)&(renderTargets_[n])));
-			device_->CreateRenderTargetView(renderTargets_[n].get(), nullptr, rtvHandle);
+			ThrowIfFailed(swapChain_->dxSwapChain_->GetBuffer(n, __uuidof(renderTargets_[n]), (void**)&(renderTargets_[n])));
+			dxBase_->device_->CreateRenderTargetView(renderTargets_[n].get(), nullptr, rtvHandle);
 			rtvHandle.ptr +=  descriptorHeapSize_;
 		}
 	}
 
-	ThrowIfFailed(device_->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, __uuidof(commandAllocator_), (void**)(&commandAllocator_)));
+	ThrowIfFailed(dxBase_->device_->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, __uuidof(commandAllocator_), (void**)(&commandAllocator_)));
 
 
 	// Create the command list.
-	ThrowIfFailed(device_->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, commandAllocator_.get(), nullptr, __uuidof(commandList_), (void**)(&commandList_)));
+	ThrowIfFailed(dxBase_->device_->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, commandAllocator_.get(), nullptr, __uuidof(commandList_), (void**)(&commandList_)));
 
 	// Command lists are created in the recording state, but there is nothing
 	// to record yet. The main loop expects it to be closed, so close it now.
@@ -126,7 +85,7 @@ void DX12Renderer::Initialize()
 	ComPtr<ID3DBlob> signature;
 	ComPtr<ID3DBlob> error;
 	ThrowIfFailed(D3D12SerializeRootSignature(&rootSigDesc, D3D_ROOT_SIGNATURE_VERSION_1, &signature, &error));
-	ThrowIfFailed(device_->CreateRootSignature(0, signature->GetBufferPointer(), signature->GetBufferSize(), __uuidof(rootSignature_), (void**)(&rootSignature_)));
+	ThrowIfFailed(dxBase_->device_->CreateRootSignature(0, signature->GetBufferPointer(), signature->GetBufferSize(), __uuidof(rootSignature_), (void**)(&rootSignature_)));
 
 
 	// Create the pipeline state, which includes compiling and loading shaders.
@@ -190,7 +149,7 @@ void DX12Renderer::Initialize()
 		psoDesc.NumRenderTargets = 1;
 		psoDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
 		psoDesc.SampleDesc.Count = 1;
-		ThrowIfFailed(device_->CreateGraphicsPipelineState(&psoDesc, __uuidof(pipelineState_), (void**)(&pipelineState_)));
+		ThrowIfFailed(dxBase_->device_->CreateGraphicsPipelineState(&psoDesc, __uuidof(pipelineState_), (void**)(&pipelineState_)));
 	}
 
 
@@ -230,7 +189,7 @@ void DX12Renderer::Initialize()
 		// recommended. Every time the GPU needs it, the upload heap will be marshalled 
 		// over. Please read up on Default Heap usage. An upload heap is used here for 
 		// code simplicity and because there are very few verts to actually transfer.
-		ThrowIfFailed(device_->CreateCommittedResource(
+		ThrowIfFailed(dxBase_->device_->CreateCommittedResource(
 			&heapProps,
 			D3D12_HEAP_FLAG_NONE,
 			&vertBufferDesc,
@@ -256,7 +215,7 @@ void DX12Renderer::Initialize()
 
 	// Create synchronization objects.
 	{
-		ThrowIfFailed(device_->CreateFence(0, D3D12_FENCE_FLAG_NONE, __uuidof(fence_), (void**)(&fence_)));
+		ThrowIfFailed(dxBase_->device_->CreateFence(0, D3D12_FENCE_FLAG_NONE, __uuidof(fence_), (void**)(&fence_)));
 		fenceValue_ = 1;
 
 		// Create an event handle to use for frame synchronization.
@@ -288,28 +247,20 @@ void DX12Renderer::Shutdown()
 
 	CloseHandle(fenceEventHandle_);
 
-
-	swapChain_->Release();
-	device_->Release();
-	for (uint32_t i = 0; i < MAX_GPUS; i++)
-		if(gpus_[i] != NULL)
-			gpus_[i]->Release();
-	
-	dxgiFactory_->Release();
-	
 	for (uint32_t i = 0; i < frameCount_; i++)
 		renderTargets_[i]->Release();
+
+	dxBase_.reset();
+	swapChain_.reset();
 
 	commandAllocator_->Release();
 	commandQueue_->Release();
 	descriptorHeap_->Release();
-	//pipelineState_->Release();
+	pipelineState_->Release();
+	rootSignature_->Release();
+	vertexBuffer_->Release();
 	commandList_->Release();
 	fence_->Release();
-
-#if defined(_DEBUG)
-	debugController_->Release();
-#endif
 
 }
 
@@ -325,7 +276,7 @@ void DX12Renderer::Render()
 	commandQueue_->ExecuteCommandLists(_countof(ppCommandLists), ppCommandLists);
 
 	// Present the frame.
-	ThrowIfFailed(swapChain_->Present(1, 0));
+	ThrowIfFailed(swapChain_->Present(1,0));
 
 	WaitForPreviousFrame();
 
@@ -421,87 +372,5 @@ void DX12Renderer::WaitForPreviousFrame()
 		WaitForSingleObject(fenceEventHandle_, INFINITE);
 	}
 
-	frameIndex_ = swapChain_->GetCurrentBackBufferIndex();
-}
-
-
-void DX12Renderer::InitGPUS()
-{
-	D3D_FEATURE_LEVEL gpu_feature_levels[MAX_GPUS];
-	for (uint32_t i = 0; i < MAX_GPUS; ++i) {
-		gpu_feature_levels[i] = (D3D_FEATURE_LEVEL)0;
-	}
-
-	IDXGIAdapter1* adapter = NULL;
-	for (UINT i = 0; DXGI_ERROR_NOT_FOUND != dxgiFactory_->EnumAdapters1(i, &adapter); ++i) {
-		DXGI_ADAPTER_DESC1 desc;
-		adapter->GetDesc1(&desc);
-		// Make sure the adapter can support a D3D12 device
-		if (SUCCEEDED(D3D12CreateDevice(adapter, D3D_FEATURE_LEVEL_12_1, __uuidof(device_), NULL))) {
-			HRESULT hres = adapter->QueryInterface(__uuidof(IDXGIAdapter3), (void**)&(gpus_[numOfGPUs_]));
-			if (SUCCEEDED(hres)) {
-				gpu_feature_levels[numOfGPUs_] = D3D_FEATURE_LEVEL_12_1;
-				++numOfGPUs_;
-			}
-			adapter->Release();
-		}
-		else if (SUCCEEDED(D3D12CreateDevice(adapter, D3D_FEATURE_LEVEL_12_0, __uuidof(device_), NULL))) {
-			HRESULT hres = adapter->QueryInterface(__uuidof(IDXGIAdapter3), (void**)&(gpus_[numOfGPUs_]));
-			if (SUCCEEDED(hres)) {
-				gpu_feature_levels[numOfGPUs_] = D3D_FEATURE_LEVEL_12_0;
-				++numOfGPUs_;
-			}
-			adapter->Release();
-		}
-	}
-	//ASSERT(numOfGPUs_ > 0);
-
-	D3D_FEATURE_LEVEL target_feature_level = D3D_FEATURE_LEVEL_12_1;
-	for (uint32_t i = 0; i < numOfGPUs_; ++i) {
-		if (gpu_feature_levels[i] == D3D_FEATURE_LEVEL_12_1) {
-			activeGPU_ = gpus_[i];
-			break;
-		}
-	}
-
-	if (activeGPU_ == NULL) {
-		for (uint32_t i = 0; i <numOfGPUs_; ++i) {
-			if (gpu_feature_levels[i] == D3D_FEATURE_LEVEL_12_0) {
-				activeGPU_ = gpus_[i];
-				target_feature_level = D3D_FEATURE_LEVEL_12_0;
-				break;
-			}
-		}
-	}
-
-	//ASSERT(activeGPU != NULL);
-
-
-	// Load functions
-	{
-		HMODULE module = ::GetModuleHandle(TEXT("d3d12.dll"));
-		fnD3D12CreateRootSignatureDeserializer
-			= (PFN_D3D12_CREATE_ROOT_SIGNATURE_DESERIALIZER)GetProcAddress(module,
-				"D3D12SerializeVersionedRootSignature");
-
-		fnD3D12SerializeVersionedRootSignature
-			= (PFN_D3D12_SERIALIZE_VERSIONED_ROOT_SIGNATURE)GetProcAddress(module,
-				"D3D12SerializeVersionedRootSignature");
-
-		fnD3D12CreateVersionedRootSignatureDeserializer
-			= (PFN_D3D12_CREATE_VERSIONED_ROOT_SIGNATURE_DESERIALIZER)GetProcAddress(module,
-				"D3D12CreateVersionedRootSignatureDeserializer");
-	}
-
-	if ((fnD3D12CreateRootSignatureDeserializer == NULL) ||
-		(fnD3D12SerializeVersionedRootSignature == NULL) ||
-		(fnD3D12CreateVersionedRootSignatureDeserializer == NULL))
-	{
-		target_feature_level = D3D_FEATURE_LEVEL_12_0;
-	}
-
-
-	HRESULT hres = D3D12CreateDevice(activeGPU_.get(), target_feature_level, __uuidof(device_), (void**)(&device_));
-	//ASSERT(SUCCEEDED(hres));
-
+	frameIndex_ = swapChain_->dxSwapChain_->GetCurrentBackBufferIndex();
 }

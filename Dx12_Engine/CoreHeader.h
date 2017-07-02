@@ -15,7 +15,16 @@
 #include <stdio.h>  /* printf */
 #include <stdlib.h> /* rand, srand */
 #include <time.h>   /* time        */
+#include <memory> //ptr stuff
+
+
 #include <wrl/client.h>
+
+//directx 12 include
+#include <d3d12.h>  
+#include <dxgi1_6.h>
+#include <d3dcompiler.h>
+#include <DirectXMath.h>
 
 using Microsoft::WRL::ComPtr;
 

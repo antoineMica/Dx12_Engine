@@ -31,6 +31,12 @@
     <Filter Include="Core\ThreadPool">
       <UniqueIdentifier>{77129444-b270-4f87-9be6-7750c2c4efa8}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Renderer\Base">
+      <UniqueIdentifier>{db1ede71-b3cf-4873-94a1-7445f23c3e00}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Renderer\SwapChain">
+      <UniqueIdentifier>{e5f3891f-2c8f-4b2c-b28c-0234bcb2d162}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -47,6 +53,12 @@
     </ClCompile>
     <ClCompile Include="App.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="DX12Base.cpp">
+      <Filter>Renderer\Base</Filter>
+    </ClCompile>
+    <ClCompile Include="SwapChain.cpp">
+      <Filter>Renderer\SwapChain</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -73,6 +85,15 @@
     </ClInclude>
     <ClInclude Include="App.h">
       <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="DxEnums.h">
+      <Filter>Renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="DX12Base.h">
+      <Filter>Renderer\Base</Filter>
+    </ClInclude>
+    <ClInclude Include="SwapChain.h">
+      <Filter>Renderer\SwapChain</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
