@@ -6,12 +6,10 @@
 #include "RenderTarget.h"
 #include "CommandAllocator.h"
 #include "GraphicsCommandList.h"
-
-typedef struct Vertex
-{
-	DirectX::XMFLOAT3 position;
-	DirectX::XMFLOAT4 color;
-}Vertex;
+#include "CommandQueue.h"
+#include "DescriptorHeap.h"
+#include "PipelineState.h"
+#include "VertexBuffer.h"
 
 class DX12Renderer : public ISystem
 {
@@ -38,14 +36,14 @@ private:
 	RenderTarget * renderTargets_[frameCount_];
 	CommandAllocator * pCommandAllocator_;
 	GraphicsCommandList * pGraphicsCommandList_;
+	CommandQueue * pCmdQueue_;
+	DescriptorHeap * pDescriptorHeap_;
+	PipelineState * pPipelineStateObject_;
 
-	ID3D12CommandQueue * commandQueue_;
-	ID3D12DescriptorHeap * descriptorHeap_;
-	ID3D12PipelineState * pipelineState_;
 	ID3D12RootSignature * rootSignature_;
-	ID3D12Resource * vertexBuffer_;
 
-	D3D12_VERTEX_BUFFER_VIEW vertexBufferview_;
+	VertexBuffer * pVertexBuffer_;
+	//D3D12_VERTEX_BUFFER_VIEW vertexBufferview_;
 
 
 	std::uint32_t descriptorHeapSize_;

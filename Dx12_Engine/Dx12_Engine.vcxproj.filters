@@ -46,6 +46,18 @@
     <Filter Include="Renderer\CommandList">
       <UniqueIdentifier>{8c87207f-74c9-47f3-98ab-4da4c41f9a08}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Renderer\CommandQueue">
+      <UniqueIdentifier>{99e9aa92-de81-4567-90ef-7e5d5e651a43}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Renderer\DescriptorHeap">
+      <UniqueIdentifier>{1693665d-bb9b-48af-935c-6dce2e34409e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Renderer\PipelineState">
+      <UniqueIdentifier>{c63cf6b3-67e7-497a-b200-3cfafeeadbaa}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Renderer\VertexBuffer">
+      <UniqueIdentifier>{5175483d-dac8-4070-8fce-22fec7442f5c}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -77,6 +89,18 @@
     </ClCompile>
     <ClCompile Include="GraphicsCommandList.cpp">
       <Filter>Renderer\CommandList</Filter>
+    </ClCompile>
+    <ClCompile Include="CommandQueue.cpp">
+      <Filter>Renderer\CommandQueue</Filter>
+    </ClCompile>
+    <ClCompile Include="DescriptorHeap.cpp">
+      <Filter>Renderer\DescriptorHeap</Filter>
+    </ClCompile>
+    <ClCompile Include="PipelineState.cpp">
+      <Filter>Renderer\PipelineState</Filter>
+    </ClCompile>
+    <ClCompile Include="VertexBuffer.cpp">
+      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -121,6 +145,18 @@
     </ClInclude>
     <ClInclude Include="GraphicsCommandList.h">
       <Filter>Renderer\CommandList</Filter>
+    </ClInclude>
+    <ClInclude Include="CommandQueue.h">
+      <Filter>Renderer\CommandQueue</Filter>
+    </ClInclude>
+    <ClInclude Include="PipelineState.h">
+      <Filter>Renderer\PipelineState</Filter>
+    </ClInclude>
+    <ClInclude Include="DescriptorHeap.h">
+      <Filter>Renderer\DescriptorHeap</Filter>
+    </ClInclude>
+    <ClInclude Include="VertexBuffer.h">
+      <Filter>Renderer\VertexBuffer</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

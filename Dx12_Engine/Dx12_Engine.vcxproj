@@ -129,18 +129,24 @@
   <ItemGroup>
     <ClCompile Include="App.cpp" />
     <ClCompile Include="CommandAllocator.cpp" />
+    <ClCompile Include="CommandQueue.cpp" />
+    <ClCompile Include="DescriptorHeap.cpp" />
     <ClCompile Include="GraphicsCommandList.cpp" />
     <ClCompile Include="DX12Base.cpp" />
     <ClCompile Include="DX12Renderer.cpp" />
     <ClCompile Include="InputSystem.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="PipelineState.cpp" />
     <ClCompile Include="RenderTarget.cpp" />
     <ClCompile Include="SwapChain.cpp" />
+    <ClCompile Include="VertexBuffer.cpp" />
     <ClCompile Include="Win32Window.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="App.h" />
     <ClInclude Include="CommandAllocator.h" />
+    <ClInclude Include="CommandQueue.h" />
+    <ClInclude Include="DescriptorHeap.h" />
     <ClInclude Include="GraphicsCommandList.h" />
     <ClInclude Include="CoreHeader.h" />
     <ClInclude Include="DX12Base.h" />
@@ -148,10 +154,12 @@
     <ClInclude Include="DxEnums.h" />
     <ClInclude Include="InputSystem.h" />
     <ClInclude Include="ISystem.h" />
+    <ClInclude Include="PipelineState.h" />
     <ClInclude Include="RenderTarget.h" />
     <ClInclude Include="SwapChain.h" />
     <ClInclude Include="ThreadPool.h" />
     <ClInclude Include="ThreadSafeQueue.h" />
+    <ClInclude Include="VertexBuffer.h" />
     <ClInclude Include="Win32Window.h" />
   </ItemGroup>
   <ItemGroup>

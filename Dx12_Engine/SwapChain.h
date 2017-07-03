@@ -3,6 +3,7 @@
 #include "DxEnums.h"
 
 class DX12Base;
+class CommandQueue;
 
 class SwapChain
 {
@@ -10,7 +11,7 @@ public:
 	SwapChain();
 	~SwapChain();
 
-	void Initialize(uint32_t  frameCount, uint32_t width, uint32_t height, ID3D12CommandQueue * commandQueue, DX12Base* dxBase);
+	void Initialize(uint32_t  frameCount, uint32_t width, uint32_t height, CommandQueue * commandQueue, DX12Base* dxBase);
 
 	HRESULT Present(uint32_t syncInterval, uint32_t flags);
 
@@ -23,7 +24,7 @@ public:
 
 	//owned by external (wrong)
 	//instead add DX12Renderer ? or global renderer
-	ID3D12CommandQueue * commandQueue_;
+	CommandQueue * commandQueue_;
 	DX12Base * dxBase_;
 };
 

@@ -2,6 +2,7 @@
 #include "DX12Base.h"
 #include "CommandAllocator.h"
 #include "RenderTarget.h"
+#include "VertexBuffer.h"
 
 GraphicsCommandList::GraphicsCommandList()
 {
@@ -72,9 +73,9 @@ void GraphicsCommandList::SetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY topo)
 	pDxCmdList_->IASetPrimitiveTopology(topo);
 }
 
-void GraphicsCommandList::SetVertexBuffers(uint32_t mStartSlot, uint32_t mNumViews, D3D12_VERTEX_BUFFER_VIEW * pViews)
+void GraphicsCommandList::SetVertexBuffers(uint32_t mStartSlot, uint32_t mNumViews, VertexBuffer * pVertBuffer)
 {
-	pDxCmdList_->IASetVertexBuffers(mStartSlot, mNumViews, pViews);
+	pDxCmdList_->IASetVertexBuffers(mStartSlot, mNumViews, &pVertBuffer->mBufferView_);
 }
 
 void GraphicsCommandList::DrawInstanced(uint32_t mVertexCountPerInstance, uint32_t mInstanceCount, uint32_t mStartVertexLoocation, uint32_t mStartInstanceLocation)

@@ -1,6 +1,7 @@
 #include "RenderTarget.h"
 #include "SwapChain.h"
 #include "DX12Base.h"
+#include "DescriptorHeap.h"
 
 
 RenderTarget::RenderTarget()
@@ -13,16 +14,16 @@ RenderTarget::~RenderTarget()
 	pDxResource_->Release();
 }
 
-void RenderTarget::Initialize(ID3D12DescriptorHeap * pDescriptorHeap)
+void RenderTarget::Initialize(DescriptorHeap * pDescriptorHeap)
 {
 }
 
 
-void RenderTarget::InitializeFromSwapChain(ID3D12DescriptorHeap * pDescriptorHeap, SwapChain * pSwapChain, DX12Base * pDxBase, uint32_t bufferId)
+void RenderTarget::InitializeFromSwapChain(DescriptorHeap * pDescriptorHeap, SwapChain * pSwapChain, DX12Base * pDxBase, uint32_t bufferId)
 {
 	//insert in given descriptor heap
 	D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle;
-	rtvHandle = pDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
+	rtvHandle = pDescriptorHeap->pDxHeap_->GetCPUDescriptorHandleForHeapStart();
 	rtvHandle.ptr += pDxBase->mRTVDescriptorHeapSize_ * bufferId;
 	mRtvHandle_ = rtvHandle;
 

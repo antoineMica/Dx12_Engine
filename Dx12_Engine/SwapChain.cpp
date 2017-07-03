@@ -1,5 +1,6 @@
 #include "SwapChain.h"
 #include "DX12Base.h"
+#include "CommandQueue.h"
 #include "Win32Window.h"
 
 
@@ -14,7 +15,7 @@ SwapChain::~SwapChain()
 
 }
 
-void SwapChain::Initialize(uint32_t frameCount, uint32_t width, uint32_t height, ID3D12CommandQueue * commandQueue, DX12Base * dxBase)
+void SwapChain::Initialize(uint32_t frameCount, uint32_t width, uint32_t height, CommandQueue * commandQueue, DX12Base * dxBase)
 {
 	frameCount_ = frameCount;
 	renderWidth_ = width;
@@ -37,7 +38,7 @@ void SwapChain::Initialize(uint32_t frameCount, uint32_t width, uint32_t height,
 		IDXGISwapChain1* swapChain;
 
 		ThrowIfFailed(dxBase_->dxgiFactory_->CreateSwapChainForHwnd(
-			commandQueue_,		// Swap chain needs the queue so that it can force a flush on it.
+			commandQueue_->pDxQueue_,		// Swap chain needs the queue so that it can force a flush on it.
 			gWindow->GetHandle(),
 			&swapChainDesc,
 			nullptr,

@@ -16,6 +16,10 @@ DX12Renderer::DX12Renderer(float wWidth, float wHeight)
 	swapChain_ = new SwapChain();
 	pCommandAllocator_ = new CommandAllocator();
 	pGraphicsCommandList_ = new GraphicsCommandList();
+	pCmdQueue_ = new CommandQueue();
+	pDescriptorHeap_ = new DescriptorHeap();
+	pPipelineStateObject_ = new PipelineState();
+	pVertexBuffer_ = new VertexBuffer();
 }
 
 
@@ -26,31 +30,17 @@ DX12Renderer::~DX12Renderer()
 
 void DX12Renderer::Initialize()
 {
-
 	dxBase_->Initialize();
-
-	// Describe and create the command queue.
-	D3D12_COMMAND_QUEUE_DESC queueDesc = {};
-	queueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
-	queueDesc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
-
-	ThrowIfFailed(dxBase_->device_->CreateCommandQueue(&queueDesc, __uuidof(commandQueue_), (void**)&(commandQueue_)));
 	
-	swapChain_->Initialize(frameCount_,windowWidth_, windowHeight_,commandQueue_,dxBase_);
-	
+	//function has default params (DIRECT cmd list and NORMAL priority)
+	pCmdQueue_->Initialize(dxBase_);
+	swapChain_->Initialize(frameCount_,(uint32_t)windowWidth_, (uint32_t)windowHeight_, pCmdQueue_,dxBase_);
 	frameIndex_ = swapChain_->dxSwapChain_->GetCurrentBackBufferIndex();
 
 	// Create descriptor heaps.
 	{
-		// Describe and create a render target view (RTV) descriptor heap.
-		D3D12_DESCRIPTOR_HEAP_DESC rtvHeapDesc = {};
-		rtvHeapDesc.NumDescriptors = frameCount_;
-		rtvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
-		rtvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-
-		ThrowIfFailed(dxBase_->device_->CreateDescriptorHeap(&rtvHeapDesc, __uuidof(descriptorHeap_), (void**)&(descriptorHeap_)));
-
-		descriptorHeapSize_ = dxBase_->device_->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+		pDescriptorHeap_->Initialize(dxBase_, frameCount_);
+		descriptorHeapSize_ = pDescriptorHeap_->mHandleIncrementSize_;
 	}
 
 	// Create frame resources.
@@ -58,7 +48,7 @@ void DX12Renderer::Initialize()
 	for (UINT n = 0; n < frameCount_; n++)
 	{
 		renderTargets_[n] = new RenderTarget();
-		renderTargets_[n]->InitializeFromSwapChain(descriptorHeap_, swapChain_, dxBase_, n);
+		renderTargets_[n]->InitializeFromSwapChain(pDescriptorHeap_, swapChain_, dxBase_, n);
 	}
 	
 	pCommandAllocator_->Initialize(D3D12_COMMAND_LIST_TYPE_DIRECT, dxBase_);
@@ -142,7 +132,8 @@ void DX12Renderer::Initialize()
 		psoDesc.NumRenderTargets = 1;
 		psoDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
 		psoDesc.SampleDesc.Count = 1;
-		ThrowIfFailed(dxBase_->device_->CreateGraphicsPipelineState(&psoDesc, __uuidof(pipelineState_), (void**)(&pipelineState_)));
+
+		pPipelineStateObject_->Initialize(dxBase_, psoDesc);
 	}
 
 
@@ -156,53 +147,7 @@ void DX12Renderer::Initialize()
 			{ { -0.25f, -0.25f * (windowWidth_ / windowHeight_), 0.0f },{ 0.0f, 0.0f, 1.0f, 1.0f } }
 		};
 
-		const UINT vertexBufferSize = sizeof(triangleVertices);
-
-		D3D12_HEAP_PROPERTIES heapProps;
-		heapProps.Type = D3D12_HEAP_TYPE_UPLOAD;
-		heapProps.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
-		heapProps.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
-		heapProps.CreationNodeMask = 1;
-		heapProps.VisibleNodeMask = 1;
-
-		D3D12_RESOURCE_DESC vertBufferDesc;
-		vertBufferDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-		vertBufferDesc.Alignment = 0;
-		vertBufferDesc.Width = vertexBufferSize;
-		vertBufferDesc.Height = 1;
-		vertBufferDesc.DepthOrArraySize = 1;
-		vertBufferDesc.MipLevels = 1;
-		vertBufferDesc.Format = DXGI_FORMAT_UNKNOWN;
-		vertBufferDesc.SampleDesc.Count = 1;
-		vertBufferDesc.SampleDesc.Quality = 0;
-		vertBufferDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-		vertBufferDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
-
-		// Note: using upload heaps to transfer static data like vert buffers is not 
-		// recommended. Every time the GPU needs it, the upload heap will be marshalled 
-		// over. Please read up on Default Heap usage. An upload heap is used here for 
-		// code simplicity and because there are very few verts to actually transfer.
-		ThrowIfFailed(dxBase_->device_->CreateCommittedResource(
-			&heapProps,
-			D3D12_HEAP_FLAG_NONE,
-			&vertBufferDesc,
-			D3D12_RESOURCE_STATE_GENERIC_READ,
-			nullptr,
-			__uuidof(vertexBuffer_), (void**)(&vertexBuffer_)));
-
-		// Copy the triangle data to the vertex buffer.
-		UINT8* pVertexDataBegin;
-		D3D12_RANGE readRange;
-		readRange.Begin = 0;		// We do not intend to read from this resource on the CPU.
-		readRange.End = 0;
-		ThrowIfFailed(vertexBuffer_->Map(0, &readRange, reinterpret_cast<void**>(&pVertexDataBegin)));
-		memcpy(pVertexDataBegin, triangleVertices, sizeof(triangleVertices));
-		vertexBuffer_->Unmap(0, nullptr);
-
-		// Initialize the vertex buffer view.
-		vertexBufferview_.BufferLocation = vertexBuffer_->GetGPUVirtualAddress();
-		vertexBufferview_.StrideInBytes = sizeof(Vertex);
-		vertexBufferview_.SizeInBytes = vertexBufferSize;
+		pVertexBuffer_->Initialize(dxBase_, triangleVertices, 3);
 	}
 
 
@@ -247,12 +192,12 @@ void DX12Renderer::Shutdown()
 	SAFE_DELETE(swapChain_);
 	SAFE_DELETE(pCommandAllocator_);
 	SAFE_DELETE(pGraphicsCommandList_);
+	SAFE_DELETE(pCmdQueue_);
+	SAFE_DELETE(pDescriptorHeap_);
+	SAFE_DELETE(pPipelineStateObject_);
+	SAFE_DELETE(pVertexBuffer_);
 
-	SAFE_RELEASE(commandQueue_);
-	SAFE_RELEASE(descriptorHeap_);
-	SAFE_RELEASE(pipelineState_);
 	SAFE_RELEASE(rootSignature_);
-	SAFE_RELEASE(vertexBuffer_);
 	SAFE_RELEASE(fence_);
 
 }
@@ -264,9 +209,7 @@ void DX12Renderer::Render()
 	// Record all the commands we need to render the scene into the command list.
 	PopulateCommandList();
 
-	// Execute the command list.
-	ID3D12CommandList* ppCommandLists[] = { pGraphicsCommandList_->pDxCmdList_ };
-	commandQueue_->ExecuteCommandLists(_countof(ppCommandLists), ppCommandLists);
+	pCmdQueue_->ExecuteCommandList(pGraphicsCommandList_);
 
 	// Present the frame.
 	assert(SUCCEEDED((swapChain_->Present(1,0))));
@@ -285,7 +228,7 @@ void DX12Renderer::PopulateCommandList()
 	// However, when ExecuteCommandList() is called on a particular command 
 	// list, that command list can then be reset at any time and must be before 
 	// re-recording.
-	assert(SUCCEEDED(pGraphicsCommandList_->Reset(pCommandAllocator_, pipelineState_)));
+	assert(SUCCEEDED(pGraphicsCommandList_->Reset(pCommandAllocator_, pPipelineStateObject_->pDxPSO_)));
 
 
 	D3D12_VIEWPORT viewport;
@@ -299,8 +242,8 @@ void DX12Renderer::PopulateCommandList()
 	D3D12_RECT scissor;
 	scissor.top = 0;
 	scissor.left= 0;
-	scissor.bottom = windowHeight_;
-	scissor.right = windowWidth_;
+	scissor.bottom = (LONG)windowHeight_;
+	scissor.right = (LONG)windowWidth_;
 
 	pGraphicsCommandList_->SetRootSignature(rootSignature_);
 	pGraphicsCommandList_->SetViewports(1, viewport);
@@ -314,7 +257,7 @@ void DX12Renderer::PopulateCommandList()
 	const float clearColor[] = { 0.0f, 0.2f, 0.4f, 1.0f };
 	pGraphicsCommandList_->ClearRenderTargetView(renderTargets_[frameIndex_], clearColor);
 	pGraphicsCommandList_->SetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-	pGraphicsCommandList_->SetVertexBuffers(0,1,&vertexBufferview_);
+	pGraphicsCommandList_->SetVertexBuffers(0,1,pVertexBuffer_);
 	pGraphicsCommandList_->DrawInstanced(3,1,0,0);
 
 
@@ -342,7 +285,7 @@ void DX12Renderer::WaitForPreviousFrame()
 
 	// Signal and increment the fence value.
 	const UINT64 fence = fenceValue_;
-	ThrowIfFailed(commandQueue_->Signal(fence_, fence));
+	pCmdQueue_->Signal(fence_, fenceValue_);
 	fenceValue_++;
 
 	// Wait until the previous frame is finished.
