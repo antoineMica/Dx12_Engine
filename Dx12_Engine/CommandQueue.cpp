@@ -1,6 +1,8 @@
 #include "CommandQueue.h"
 #include "DX12Base.h"
 #include "GraphicsCommandList.h"
+#include "Fence.h"
+
 
 CommandQueue::CommandQueue()
 {
@@ -36,11 +38,11 @@ void CommandQueue::ExecuteCommandList(GraphicsCommandList * pCmdlist)
 }
 
 
-HRESULT CommandQueue::Signal(ID3D12Fence * pFence, uint64_t& fenceValue)
+HRESULT CommandQueue::Signal(Fence * pFence)
 {
-	const uint64_t curFenceValue = fenceValue;
-	HRESULT hr = pDxQueue_->Signal(pFence, curFenceValue);
+	const uint64_t curFenceValue = pFence->mNextFenceValue_;
+	HRESULT hr = pDxQueue_->Signal(pFence->pDxFence_, curFenceValue);
 	assert(SUCCEEDED(hr));
-	fenceValue++;
+	pFence->NextFenceValue();
 	return hr;
 }

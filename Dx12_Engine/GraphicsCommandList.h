@@ -6,6 +6,8 @@ class CommandAllocator;
 class DX12Base;
 class RenderTarget;
 class VertexBuffer;
+class PipelineState;
+class RootSignature;
 
 class GraphicsCommandList
 {
@@ -14,13 +16,11 @@ public:
 	~GraphicsCommandList();
 
 	void Initialize(D3D12_COMMAND_LIST_TYPE type, CommandAllocator * pAllocator, DX12Base * pDxBase);
-
-
 	HRESULT Close();
-	HRESULT Reset(CommandAllocator * pAllocator, ID3D12PipelineState * pPipelineState);
+	HRESULT Reset(CommandAllocator * pAllocator, PipelineState * pPipelineState);
 
 	//commnand list functions
-	void SetRootSignature(ID3D12RootSignature * pRootSignature);
+	void SetRootSignature(RootSignature * pRootSignature);
 	void SetViewports(uint32_t mViewportCount, D3D12_VIEWPORT & mViewport);
 	void SetScissor(uint32_t mRectCount, D3D12_RECT & mScissor);
 	void TransitionBarrier(D3D12_RESOURCE_BARRIER_FLAGS mFlags, ID3D12Resource * pDxResource, D3D12_RESOURCE_STATES mStateBefore, D3D12_RESOURCE_STATES mStateAfter);

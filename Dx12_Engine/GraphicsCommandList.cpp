@@ -3,6 +3,8 @@
 #include "CommandAllocator.h"
 #include "RenderTarget.h"
 #include "VertexBuffer.h"
+#include "PipelineState.h"
+#include "RootSignature.h"
 
 GraphicsCommandList::GraphicsCommandList()
 {
@@ -32,14 +34,14 @@ HRESULT GraphicsCommandList::Close()
 }
 
 
-HRESULT GraphicsCommandList::Reset(CommandAllocator * pAllocator, ID3D12PipelineState * pPipelineState)
+HRESULT GraphicsCommandList::Reset(CommandAllocator * pAllocator, PipelineState * pPipelineState)
 {
-	return pDxCmdList_->Reset(pAllocator->pDxAllocator_, pPipelineState);
+	return pDxCmdList_->Reset(pAllocator->pDxAllocator_, pPipelineState->pDxPSO_);
 }
 
-void GraphicsCommandList::SetRootSignature(ID3D12RootSignature * pRootSignature)
+void GraphicsCommandList::SetRootSignature(RootSignature * pRootSignature)
 {
-	pDxCmdList_->SetGraphicsRootSignature(pRootSignature);
+	pDxCmdList_->SetGraphicsRootSignature(pRootSignature->pDxRootSig_);
 }
 
 
