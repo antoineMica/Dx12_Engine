@@ -19,6 +19,7 @@ public:
 #endif
 
 	uint32_t numOfGPUs_;
+	uint32_t mRTVDescriptorHeapSize_;
 
 	// Functions points for functions that need to be loaded
 	PFN_D3D12_CREATE_ROOT_SIGNATURE_DESERIALIZER           fnD3D12CreateRootSignatureDeserializer = NULL;

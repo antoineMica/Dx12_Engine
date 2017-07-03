@@ -3,7 +3,9 @@
 #include "CoreHeader.h"
 #include "DX12Base.h"
 #include "SwapChain.h"
-
+#include "RenderTarget.h"
+#include "CommandAllocator.h"
+#include "GraphicsCommandList.h"
 
 typedef struct Vertex
 {
@@ -31,18 +33,18 @@ public:
 private:
 	static const uint32_t frameCount_ = 3;
 
-	std::shared_ptr<DX12Base> dxBase_;
-	std::shared_ptr<SwapChain> swapChain_;
+	DX12Base * dxBase_;
+	SwapChain * swapChain_;
+	RenderTarget * renderTargets_[frameCount_];
+	CommandAllocator * pCommandAllocator_;
+	GraphicsCommandList * pGraphicsCommandList_;
 
-	std::shared_ptr<ID3D12Resource> renderTargets_[frameCount_];
-	std::shared_ptr<ID3D12CommandAllocator> commandAllocator_;
-	std::shared_ptr<ID3D12CommandQueue> commandQueue_;
-	std::shared_ptr<ID3D12DescriptorHeap> descriptorHeap_;
-	std::shared_ptr<ID3D12PipelineState> pipelineState_;
-	std::shared_ptr<ID3D12RootSignature> rootSignature_;
-	std::shared_ptr<ID3D12GraphicsCommandList> commandList_;
+	ID3D12CommandQueue * commandQueue_;
+	ID3D12DescriptorHeap * descriptorHeap_;
+	ID3D12PipelineState * pipelineState_;
+	ID3D12RootSignature * rootSignature_;
+	ID3D12Resource * vertexBuffer_;
 
-	std::shared_ptr<ID3D12Resource> vertexBuffer_;
 	D3D12_VERTEX_BUFFER_VIEW vertexBufferview_;
 
 
@@ -50,8 +52,8 @@ private:
 
 	std::uint32_t frameIndex_;
 	HANDLE fenceEventHandle_;
-	std::shared_ptr<ID3D12Fence> fence_;
 	std::uint64_t fenceValue_;
+	ID3D12Fence * fence_;
 
 	float windowWidth_;
 	float windowHeight_;

@@ -37,6 +37,15 @@
     <Filter Include="Renderer\SwapChain">
       <UniqueIdentifier>{e5f3891f-2c8f-4b2c-b28c-0234bcb2d162}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Renderer\RenderTarget">
+      <UniqueIdentifier>{5f1f7ed0-04a0-4efe-a0a2-59c55947e54d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Renderer\CommandAllocator">
+      <UniqueIdentifier>{fe56860f-6884-4a49-b3f6-19304645b69d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Renderer\CommandList">
+      <UniqueIdentifier>{8c87207f-74c9-47f3-98ab-4da4c41f9a08}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -59,6 +68,15 @@
     </ClCompile>
     <ClCompile Include="SwapChain.cpp">
       <Filter>Renderer\SwapChain</Filter>
+    </ClCompile>
+    <ClCompile Include="RenderTarget.cpp">
+      <Filter>Renderer\RenderTarget</Filter>
+    </ClCompile>
+    <ClCompile Include="CommandAllocator.cpp">
+      <Filter>Renderer\CommandAllocator</Filter>
+    </ClCompile>
+    <ClCompile Include="GraphicsCommandList.cpp">
+      <Filter>Renderer\CommandList</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -95,5 +113,17 @@
     <ClInclude Include="SwapChain.h">
       <Filter>Renderer\SwapChain</Filter>
     </ClInclude>
+    <ClInclude Include="RenderTarget.h">
+      <Filter>Renderer\RenderTarget</Filter>
+    </ClInclude>
+    <ClInclude Include="CommandAllocator.h">
+      <Filter>Renderer\CommandAllocator</Filter>
+    </ClInclude>
+    <ClInclude Include="GraphicsCommandList.h">
+      <Filter>Renderer\CommandList</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\README.md" />
   </ItemGroup>
 </Project>

@@ -12,8 +12,10 @@ DX12Renderer::DX12Renderer(float wWidth, float wHeight)
 	useWarpDevice_ = false;
 
 	//create pointer
-	dxBase_ = std::make_shared<DX12Base>();
-	swapChain_ = std::make_shared<SwapChain>();
+	dxBase_ = new DX12Base();
+	swapChain_ = new SwapChain();
+	pCommandAllocator_ = new CommandAllocator();
+	pGraphicsCommandList_ = new GraphicsCommandList();
 }
 
 
@@ -52,28 +54,19 @@ void DX12Renderer::Initialize()
 	}
 
 	// Create frame resources.
+	// Create a RTV for each frame.
+	for (UINT n = 0; n < frameCount_; n++)
 	{
-		D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle;
-		rtvHandle = descriptorHeap_->GetCPUDescriptorHandleForHeapStart();
-
-		// Create a RTV for each frame.
-		for (UINT n = 0; n < frameCount_; n++)
-		{
-			ThrowIfFailed(swapChain_->dxSwapChain_->GetBuffer(n, __uuidof(renderTargets_[n]), (void**)&(renderTargets_[n])));
-			dxBase_->device_->CreateRenderTargetView(renderTargets_[n].get(), nullptr, rtvHandle);
-			rtvHandle.ptr +=  descriptorHeapSize_;
-		}
+		renderTargets_[n] = new RenderTarget();
+		renderTargets_[n]->InitializeFromSwapChain(descriptorHeap_, swapChain_, dxBase_, n);
 	}
-
-	ThrowIfFailed(dxBase_->device_->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, __uuidof(commandAllocator_), (void**)(&commandAllocator_)));
-
-
-	// Create the command list.
-	ThrowIfFailed(dxBase_->device_->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, commandAllocator_.get(), nullptr, __uuidof(commandList_), (void**)(&commandList_)));
+	
+	pCommandAllocator_->Initialize(D3D12_COMMAND_LIST_TYPE_DIRECT, dxBase_);
+	pGraphicsCommandList_->Initialize(D3D12_COMMAND_LIST_TYPE_DIRECT, pCommandAllocator_,dxBase_);
 
 	// Command lists are created in the recording state, but there is nothing
 	// to record yet. The main loop expects it to be closed, so close it now.
-	ThrowIfFailed(commandList_->Close());
+	ThrowIfFailed(pGraphicsCommandList_->Close());
 
 	D3D12_ROOT_SIGNATURE_DESC rootSigDesc;
 	rootSigDesc.NumParameters = 0;
@@ -113,7 +106,7 @@ void DX12Renderer::Initialize()
 		// Describe and create the graphics pipeline state object (PSO).
 		D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = {};
 		psoDesc.InputLayout = { inputElementDescs, _countof(inputElementDescs) };
-		psoDesc.pRootSignature = rootSignature_.get();
+		psoDesc.pRootSignature = rootSignature_;
 		psoDesc.VS.BytecodeLength = vertexShader->GetBufferSize();
 		psoDesc.VS.pShaderBytecode = vertexShader->GetBufferPointer();
 		psoDesc.PS.BytecodeLength = pixelShader->GetBufferSize();
@@ -248,19 +241,19 @@ void DX12Renderer::Shutdown()
 	CloseHandle(fenceEventHandle_);
 
 	for (uint32_t i = 0; i < frameCount_; i++)
-		renderTargets_[i]->Release();
+		SAFE_DELETE(renderTargets_[i]);
 
-	dxBase_.reset();
-	swapChain_.reset();
+	SAFE_DELETE(dxBase_);
+	SAFE_DELETE(swapChain_);
+	SAFE_DELETE(pCommandAllocator_);
+	SAFE_DELETE(pGraphicsCommandList_);
 
-	commandAllocator_->Release();
-	commandQueue_->Release();
-	descriptorHeap_->Release();
-	pipelineState_->Release();
-	rootSignature_->Release();
-	vertexBuffer_->Release();
-	commandList_->Release();
-	fence_->Release();
+	SAFE_RELEASE(commandQueue_);
+	SAFE_RELEASE(descriptorHeap_);
+	SAFE_RELEASE(pipelineState_);
+	SAFE_RELEASE(rootSignature_);
+	SAFE_RELEASE(vertexBuffer_);
+	SAFE_RELEASE(fence_);
 
 }
 
@@ -272,11 +265,11 @@ void DX12Renderer::Render()
 	PopulateCommandList();
 
 	// Execute the command list.
-	ID3D12CommandList* ppCommandLists[] = { commandList_.get() };
+	ID3D12CommandList* ppCommandLists[] = { pGraphicsCommandList_->pDxCmdList_ };
 	commandQueue_->ExecuteCommandLists(_countof(ppCommandLists), ppCommandLists);
 
 	// Present the frame.
-	ThrowIfFailed(swapChain_->Present(1,0));
+	assert(SUCCEEDED((swapChain_->Present(1,0))));
 
 	WaitForPreviousFrame();
 
@@ -287,12 +280,12 @@ void DX12Renderer::PopulateCommandList()
 	// Command list allocators can only be reset when the associated 
 	// command lists have finished execution on the GPU; apps should use 
 	// fences to determine GPU execution progress.
-	ThrowIfFailed(commandAllocator_->Reset());
+	assert(SUCCEEDED(pCommandAllocator_->Reset()));
 
 	// However, when ExecuteCommandList() is called on a particular command 
 	// list, that command list can then be reset at any time and must be before 
 	// re-recording.
-	ThrowIfFailed(commandList_->Reset(commandAllocator_.get(), pipelineState_.get()));
+	assert(SUCCEEDED(pGraphicsCommandList_->Reset(pCommandAllocator_, pipelineState_)));
 
 
 	D3D12_VIEWPORT viewport;
@@ -309,40 +302,27 @@ void DX12Renderer::PopulateCommandList()
 	scissor.bottom = windowHeight_;
 	scissor.right = windowWidth_;
 
-	commandList_->SetGraphicsRootSignature(rootSignature_.get());
-	commandList_->RSSetViewports(1, &viewport);
-	commandList_->RSSetScissorRects(1,&scissor);
-
-
-	D3D12_RESOURCE_BARRIER barrier;
-	barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-	barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-	barrier.Transition.pResource = renderTargets_[frameIndex_].get();
-	barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-	barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
-	barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
+	pGraphicsCommandList_->SetRootSignature(rootSignature_);
+	pGraphicsCommandList_->SetViewports(1, viewport);
+	pGraphicsCommandList_->SetScissor(1,scissor);
 
 	// Indicate that the back buffer will be used as a render target.
-	commandList_->ResourceBarrier(1, &barrier);
-
-	D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle;
-	rtvHandle.ptr = descriptorHeap_->GetCPUDescriptorHandleForHeapStart().ptr + frameIndex_ * descriptorHeapSize_;
-	commandList_->OMSetRenderTargets(1, &rtvHandle, FALSE, nullptr);
+	pGraphicsCommandList_->TransitionBarrier(D3D12_RESOURCE_BARRIER_FLAG_NONE, renderTargets_[frameIndex_]->pDxResource_, D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);
+	pGraphicsCommandList_->SetRenderTarget(renderTargets_[frameIndex_]);
 	
 	// Record commands.
 	const float clearColor[] = { 0.0f, 0.2f, 0.4f, 1.0f };
-	commandList_->ClearRenderTargetView(rtvHandle, clearColor, 0, nullptr);
-	commandList_->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-	commandList_->IASetVertexBuffers(0,1,&vertexBufferview_);
-	commandList_->DrawInstanced(3,1,0,0);
+	pGraphicsCommandList_->ClearRenderTargetView(renderTargets_[frameIndex_], clearColor);
+	pGraphicsCommandList_->SetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	pGraphicsCommandList_->SetVertexBuffers(0,1,&vertexBufferview_);
+	pGraphicsCommandList_->DrawInstanced(3,1,0,0);
 
 
-	barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
-	barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
 	// Indicate that the back buffer will now be used to present.
-	commandList_->ResourceBarrier(1, &barrier);
+	pGraphicsCommandList_->TransitionBarrier(D3D12_RESOURCE_BARRIER_FLAG_NONE, renderTargets_[frameIndex_]->pDxResource_, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
 
-	ThrowIfFailed(commandList_->Close());
+
+	assert(SUCCEEDED(pGraphicsCommandList_->Close()));
 }
 
 void DX12Renderer::BeginFrame()
@@ -362,7 +342,7 @@ void DX12Renderer::WaitForPreviousFrame()
 
 	// Signal and increment the fence value.
 	const UINT64 fence = fenceValue_;
-	ThrowIfFailed(commandQueue_->Signal(fence_.get(), fence));
+	ThrowIfFailed(commandQueue_->Signal(fence_, fence));
 	fenceValue_++;
 
 	// Wait until the previous frame is finished.

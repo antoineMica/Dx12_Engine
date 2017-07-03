@@ -41,6 +41,25 @@ inline void ThrowIfFailed(HRESULT hr)
 	}
 }
 
+#define SAFE_DELETE_ARR(p_var)\
+    if (NULL != p_var) {               \
+       delete [] p_var;                    \
+       p_var = NULL;                   \
+    }
+
+
+#define SAFE_DELETE(p_var) \
+    if (NULL != p_var) {               \
+       delete p_var;                    \
+       p_var = NULL;                   \
+    }
+
+
+#define SAFE_RELEASE(p_var) \
+    if (NULL != p_var) {               \
+       p_var->Release();               \
+       p_var = NULL;                   \
+    }
 
 // CRT debug memory leak line output
 #ifndef DBG_NEW

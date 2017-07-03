@@ -14,7 +14,7 @@ SwapChain::~SwapChain()
 
 }
 
-void SwapChain::Initialize(uint32_t frameCount, uint32_t width, uint32_t height, std::shared_ptr<ID3D12CommandQueue> commandQueue, std::shared_ptr<DX12Base> dxBase)
+void SwapChain::Initialize(uint32_t frameCount, uint32_t width, uint32_t height, ID3D12CommandQueue * commandQueue, DX12Base * dxBase)
 {
 	frameCount_ = frameCount;
 	renderWidth_ = width;
@@ -37,7 +37,7 @@ void SwapChain::Initialize(uint32_t frameCount, uint32_t width, uint32_t height,
 		IDXGISwapChain1* swapChain;
 
 		ThrowIfFailed(dxBase_->dxgiFactory_->CreateSwapChainForHwnd(
-			commandQueue_.get(),		// Swap chain needs the queue so that it can force a flush on it.
+			commandQueue_,		// Swap chain needs the queue so that it can force a flush on it.
 			gWindow->GetHandle(),
 			&swapChainDesc,
 			nullptr,

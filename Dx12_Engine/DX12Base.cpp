@@ -5,6 +5,7 @@
 DX12Base::DX12Base()
 {
 	numOfGPUs_ = 0;
+	mRTVDescriptorHeapSize_ = 0;
 	//ASSERT(SUCCEEDED(hres));
 }
 
@@ -117,4 +118,6 @@ void DX12Base::Initialize()
 
 
 	HRESULT hres = D3D12CreateDevice(activeGPU_.get(), target_feature_level, __uuidof(device_), (void**)(&device_));
+
+	mRTVDescriptorHeapSize_ = device_->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 }
