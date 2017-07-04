@@ -9,9 +9,10 @@ public:
 	DescriptorHeap();
 	~DescriptorHeap();
 
-	void Initialize(DX12Base *pDxBase , uint32_t mNumDescriptors);
+	void Initialize(DX12Base *pDxBase , D3D12_DESCRIPTOR_HEAP_DESC &mDescHeap);
 
 	uint32_t mHandleIncrementSize_;
 	ID3D12DescriptorHeap * pDxHeap_;
+	D3D12_DESCRIPTOR_HEAP_DESC mDescHeap_;
 };
 

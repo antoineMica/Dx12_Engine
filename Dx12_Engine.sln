@@ -10,6 +10,11 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "HelloWorldTriangle", "Hello
 		{2330E4D1-7B98-482C-B9B2-D0A8CD952CEC} = {2330E4D1-7B98-482C-B9B2-D0A8CD952CEC}
 	EndProjectSection
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "HelloTexture", "HelloTexture\HelloTexture.vcxproj", "{12CF3E96-0EC3-4A2D-91FF-D62979C6CC01}"
+	ProjectSection(ProjectDependencies) = postProject
+		{2330E4D1-7B98-482C-B9B2-D0A8CD952CEC} = {2330E4D1-7B98-482C-B9B2-D0A8CD952CEC}
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -34,6 +39,14 @@ Global
 		{8D42CFA8-C596-424F-85CC-A839F92A6D25}.Release|x64.Build.0 = Release|x64
 		{8D42CFA8-C596-424F-85CC-A839F92A6D25}.Release|x86.ActiveCfg = Release|Win32
 		{8D42CFA8-C596-424F-85CC-A839F92A6D25}.Release|x86.Build.0 = Release|Win32
+		{12CF3E96-0EC3-4A2D-91FF-D62979C6CC01}.Debug|x64.ActiveCfg = Debug|x64
+		{12CF3E96-0EC3-4A2D-91FF-D62979C6CC01}.Debug|x64.Build.0 = Debug|x64
+		{12CF3E96-0EC3-4A2D-91FF-D62979C6CC01}.Debug|x86.ActiveCfg = Debug|Win32
+		{12CF3E96-0EC3-4A2D-91FF-D62979C6CC01}.Debug|x86.Build.0 = Debug|Win32
+		{12CF3E96-0EC3-4A2D-91FF-D62979C6CC01}.Release|x64.ActiveCfg = Release|x64
+		{12CF3E96-0EC3-4A2D-91FF-D62979C6CC01}.Release|x64.Build.0 = Release|x64
+		{12CF3E96-0EC3-4A2D-91FF-D62979C6CC01}.Release|x86.ActiveCfg = Release|Win32
+		{12CF3E96-0EC3-4A2D-91FF-D62979C6CC01}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

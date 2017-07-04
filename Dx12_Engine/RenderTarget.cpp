@@ -29,7 +29,7 @@ void RenderTarget::InitializeFromSwapChain(DescriptorHeap * pDescriptorHeap, Swa
 
 	{
 		//get swapchain buffer
-		ThrowIfFailed(pSwapChain->dxSwapChain_->GetBuffer(bufferId, __uuidof(pDxResource_), (void**)&(pDxResource_)));
+		assert(SUCCEEDED(pSwapChain->pDxSwapChain_->GetBuffer(bufferId, __uuidof(pDxResource_), (void**)&(pDxResource_))));
 		//add render target view in heap
 		pDxBase->device_->CreateRenderTargetView(pDxResource_, nullptr, rtvHandle);
 	}

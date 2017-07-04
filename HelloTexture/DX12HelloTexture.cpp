@@ -1,4 +1,4 @@
-#include "DX12Renderer.h"
+#include "DX12HelloTexture.h"
 #include "Win32Window.h"
 #include "DX12Base.h"
 #include "SwapChain.h"
@@ -13,7 +13,7 @@
 #include "RootSignature.h"
 #include "Shader.h"
 
-DX12Renderer::DX12Renderer(float wWidth, float wHeight)
+DX12HelloTexture::DX12HelloTexture(float wWidth, float wHeight)
 {
 	frameIndex_ = 0;
 	descriptorHeapSize_ = 0;
@@ -27,7 +27,8 @@ DX12Renderer::DX12Renderer(float wWidth, float wHeight)
 	pCommandAllocator_ = new CommandAllocator();
 	pGraphicsCommandList_ = new GraphicsCommandList();
 	pCmdQueue_ = new CommandQueue();
-	pDescriptorHeap_ = new DescriptorHeap();
+	pRtvHeap_ = new DescriptorHeap();
+	pSrvHeap_ = new DescriptorHeap();
 	pPipelineStateObject_ = new PipelineState();
 	pVertexBuffer_ = new VertexBuffer();
 	pFence_ = new Fence();
@@ -36,12 +37,12 @@ DX12Renderer::DX12Renderer(float wWidth, float wHeight)
 }
 
 
-DX12Renderer::~DX12Renderer()
+DX12HelloTexture::~DX12HelloTexture()
 {
 }
 
 
-void DX12Renderer::Initialize()
+void DX12HelloTexture::Initialize()
 {
 	pDxBase_->Initialize();
 	
@@ -50,23 +51,30 @@ void DX12Renderer::Initialize()
 	pSwapChain_->Initialize(frameCount_,(uint32_t)windowWidth_, (uint32_t)windowHeight_, pCmdQueue_,pDxBase_);
 	frameIndex_ = pSwapChain_->pDxSwapChain_->GetCurrentBackBufferIndex();
 
-	D3D12_DESCRIPTOR_HEAP_DESC mDescHeap;
-
-	mDescHeap.NumDescriptors = frameCount_;
-	mDescHeap.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
-	mDescHeap.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-	mDescHeap.NodeMask = 0;
+	// Describe and create a render target view (RTV) descriptor heap.
+	D3D12_DESCRIPTOR_HEAP_DESC rtvHeapDesc = {};
+	rtvHeapDesc.NumDescriptors = frameCount_;
+	rtvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
+	rtvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
 
 	// Create descriptor heaps.
-	pDescriptorHeap_->Initialize(pDxBase_, mDescHeap);
-	descriptorHeapSize_ = pDescriptorHeap_->mHandleIncrementSize_;
+	pRtvHeap_->Initialize(pDxBase_, rtvHeapDesc);
+	descriptorHeapSize_ = pRtvHeap_->mHandleIncrementSize_;
+
+
+	// Describe and create a shader resource view (SRV) descriptor heap.
+	D3D12_DESCRIPTOR_HEAP_DESC srvHeapDesc = {};
+	srvHeapDesc.NumDescriptors = 1;
+	srvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+	srvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+	pSrvHeap_->Initialize(pDxBase_, srvHeapDesc);
 
 	// Create frame resources.
 	// Create a RTV for each frame.
 	for (UINT n = 0; n < frameCount_; n++)
 	{
 		pRenderTarget_[n] = new RenderTarget();
-		pRenderTarget_[n]->InitializeFromSwapChain(pDescriptorHeap_, pSwapChain_, pDxBase_, n);
+		pRenderTarget_[n]->InitializeFromSwapChain(pRtvHeap_, pSwapChain_, pDxBase_, n);
 	}
 	
 	pCommandAllocator_->Initialize(D3D12_COMMAND_LIST_TYPE_DIRECT, pDxBase_);
@@ -148,14 +156,73 @@ void DX12Renderer::Initialize()
 		// Define the geometry for a triangle.
 		Vertex triangleVertices[] =
 		{
-			{ { 0.0f, 0.25f * (windowWidth_/windowHeight_), 0.0f },{ 1.0f, 0.0f, 0.0f, 1.0f } },
-			{ { 0.25f, -0.25f * (windowWidth_ / windowHeight_), 0.0f },{ 0.0f, 1.0f, 0.0f, 1.0f } },
-			{ { -0.25f, -0.25f * (windowWidth_ / windowHeight_), 0.0f },{ 0.0f, 0.0f, 1.0f, 1.0f } }
+			{ { 0.0f, 0.25f * (windowWidth_/windowHeight_), 0.0f },{ 0.5f, 0.0f, 0.0f, 1.0f } },
+			{ { 0.25f, -0.25f * (windowWidth_ / windowHeight_), 0.0f },{ 1.0f, 1.0f, 0.0f, 1.0f } },
+			{ { -0.25f, -0.25f * (windowWidth_ / windowHeight_), 0.0f },{ 0.0f, 1.0f, 0.0f, 1.0f } }
 		};
 
 		pVertexBuffer_->Initialize(pDxBase_, triangleVertices, 3);
 	}
 
+	// Note: ComPtr's are CPU objects but this resource needs to stay in scope until
+	// the command list that references it has finished executing on the GPU.
+	// We will flush the GPU at the end of this method to ensure the resource is not
+	// prematurely destroyed.
+	ID3D12Resource * textureUploadHeap;
+
+	// Create the texture.
+	{
+		// Describe and create a Texture2D.
+		D3D12_RESOURCE_DESC textureDesc = {};
+		textureDesc.MipLevels = 1;
+		textureDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+		textureDesc.Width = TextureWidth;
+		textureDesc.Height = TextureHeight;
+		textureDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
+		textureDesc.DepthOrArraySize = 1;
+		textureDesc.SampleDesc.Count = 1;
+		textureDesc.SampleDesc.Quality = 0;
+		textureDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+
+		ThrowIfFailed(m_device->CreateCommittedResource(
+			&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
+			D3D12_HEAP_FLAG_NONE,
+			&textureDesc,
+			D3D12_RESOURCE_STATE_COPY_DEST,
+			nullptr,
+			IID_PPV_ARGS(&m_texture)));
+
+		const UINT64 uploadBufferSize = GetRequiredIntermediateSize(m_texture.Get(), 0, 1);
+
+		// Create the GPU upload buffer.
+		ThrowIfFailed(m_device->CreateCommittedResource(
+			&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
+			D3D12_HEAP_FLAG_NONE,
+			&CD3DX12_RESOURCE_DESC::Buffer(uploadBufferSize),
+			D3D12_RESOURCE_STATE_GENERIC_READ,
+			nullptr,
+			IID_PPV_ARGS(&textureUploadHeap)));
+
+		// Copy data to the intermediate upload heap and then schedule a copy 
+		// from the upload heap to the Texture2D.
+		std::vector<UINT8> texture = GenerateTextureData();
+
+		D3D12_SUBRESOURCE_DATA textureData = {};
+		textureData.pData = &texture[0];
+		textureData.RowPitch = TextureWidth * TexturePixelSize;
+		textureData.SlicePitch = textureData.RowPitch * TextureHeight;
+
+		UpdateSubresources(m_commandList.Get(), m_texture.Get(), textureUploadHeap.Get(), 0, 0, 1, &textureData);
+		m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_texture.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE));
+
+		// Describe and create a SRV for the texture.
+		D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+		srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+		srvDesc.Format = textureDesc.Format;
+		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+		srvDesc.Texture2D.MipLevels = 1;
+		m_device->CreateShaderResourceView(m_texture.Get(), &srvDesc, m_srvHeap->GetCPUDescriptorHandleForHeapStart());
+	}
 
 	// Create synchronization objects.
 	{
@@ -166,17 +233,18 @@ void DX12Renderer::Initialize()
 		// complete before continuing.
 		WaitForPreviousFrame();
 	}
+	textureUploadHeap->Release();
 
 }
 
 
-void DX12Renderer::Update(float dt)
+void DX12HelloTexture::Update(float dt)
 {
 
 }
 
 
-void DX12Renderer::Shutdown()
+void DX12HelloTexture::Shutdown()
 {
 	// Ensure that the GPU is no longer referencing resources that are about to be
 	// cleaned up by the destructor.
@@ -190,18 +258,21 @@ void DX12Renderer::Shutdown()
 	SAFE_DELETE(pCommandAllocator_);
 	SAFE_DELETE(pGraphicsCommandList_);
 	SAFE_DELETE(pCmdQueue_);
-	SAFE_DELETE(pDescriptorHeap_);
+	SAFE_DELETE(pRtvHeap_);
+	SAFE_DELETE(pSrvHeap_);
 	SAFE_DELETE(pPipelineStateObject_);
 	SAFE_DELETE(pVertexBuffer_);
 	SAFE_DELETE(pFence_);
 	SAFE_DELETE(pRootSignature_);
 	SAFE_DELETE(pShader_);
+	
+	SAFE_RELEASE(pTexture_);
 
 }
 
 
 
-void DX12Renderer::Render()
+void DX12HelloTexture::Render()
 {
 	// Record all the commands we need to render the scene into the command list.
 	PopulateCommandList();
@@ -215,7 +286,7 @@ void DX12Renderer::Render()
 
 }
 
-void DX12Renderer::PopulateCommandList()
+void DX12HelloTexture::PopulateCommandList()
 {
 	// Command list allocators can only be reset when the associated 
 	// command lists have finished execution on the GPU; apps should use 
@@ -265,15 +336,15 @@ void DX12Renderer::PopulateCommandList()
 	assert(SUCCEEDED(pGraphicsCommandList_->Close()));
 }
 
-void DX12Renderer::BeginFrame()
+void DX12HelloTexture::BeginFrame()
 {
 }
 
-void DX12Renderer::EndFrame()
+void DX12HelloTexture::EndFrame()
 {
 }
 
-void DX12Renderer::WaitForPreviousFrame()
+void DX12HelloTexture::WaitForPreviousFrame()
 {
 	// WAITING FOR THE FRAME TO COMPLETE BEFORE CONTINUING IS NOT BEST PRACTICE.
 	// This is code implemented as such for simplicity. The D3D12HelloFrameBuffering
@@ -288,4 +359,42 @@ void DX12Renderer::WaitForPreviousFrame()
 	pFence_->WaitForEventCompletion(currFenceValue);
 
 	frameIndex_ = pSwapChain_->pDxSwapChain_->GetCurrentBackBufferIndex();
+}
+
+
+std::vector<uint32_t> DX12HelloTexture::GenerateTextureData()
+{
+	const UINT rowPitch = TextureWidth * TexturePixelSize;
+	const UINT cellPitch = rowPitch >> 3;		// The width of a cell in the checkboard texture.
+	const UINT cellHeight = TextureWidth >> 3;	// The height of a cell in the checkerboard texture.
+	const UINT textureSize = rowPitch * TextureHeight;
+
+	std::vector<uint32_t> data(textureSize);
+	uint32_t* pData = &data[0];
+
+	for (UINT n = 0; n < textureSize; n += TexturePixelSize)
+	{
+		UINT x = n % rowPitch;
+		UINT y = n / rowPitch;
+		UINT i = x / cellPitch;
+		UINT j = y / cellHeight;
+
+		if (i % 2 == j % 2)
+		{
+			pData[n] = 0x00;		// R
+			pData[n + 1] = 0x00;	// G
+			pData[n + 2] = 0x00;	// B
+			pData[n + 3] = 0xff;	// A
+		}
+		else
+		{
+			pData[n] = 0xff;		// R
+			pData[n + 1] = 0xff;	// G
+			pData[n + 2] = 0xff;	// B
+			pData[n + 3] = 0xff;	// A
+		}
+	}
+
+	return data;
+
 }

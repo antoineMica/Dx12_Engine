@@ -11,7 +11,7 @@ SwapChain::SwapChain()
 
 SwapChain::~SwapChain()
 {
-	dxSwapChain_->Release();
+	pDxSwapChain_->Release();
 
 }
 
@@ -20,8 +20,8 @@ void SwapChain::Initialize(uint32_t frameCount, uint32_t width, uint32_t height,
 	frameCount_ = frameCount;
 	renderWidth_ = width;
 	renderHeight_ = height;
-	commandQueue_ = commandQueue;
-	dxBase_ = dxBase;
+	pCommandQueue_ = commandQueue;
+	pDxBase_ = dxBase;
 
 	//Add Swapchain
 	{
@@ -37,8 +37,8 @@ void SwapChain::Initialize(uint32_t frameCount, uint32_t width, uint32_t height,
 
 		IDXGISwapChain1* swapChain;
 
-		ThrowIfFailed(dxBase_->dxgiFactory_->CreateSwapChainForHwnd(
-			commandQueue_->pDxQueue_,		// Swap chain needs the queue so that it can force a flush on it.
+		ThrowIfFailed(pDxBase_->dxgiFactory_->CreateSwapChainForHwnd(
+			pCommandQueue_->pDxQueue_,		// Swap chain needs the queue so that it can force a flush on it.
 			gWindow->GetHandle(),
 			&swapChainDesc,
 			nullptr,
@@ -47,10 +47,10 @@ void SwapChain::Initialize(uint32_t frameCount, uint32_t width, uint32_t height,
 		));
 
 		// This sample does not support fullscreen transitions.
-		ThrowIfFailed(dxBase_->dxgiFactory_->MakeWindowAssociation(gWindow->GetHandle(), DXGI_MWA_NO_ALT_ENTER));
+		ThrowIfFailed(pDxBase_->dxgiFactory_->MakeWindowAssociation(gWindow->GetHandle(), DXGI_MWA_NO_ALT_ENTER));
 
 
-		HRESULT hres = swapChain->QueryInterface(__uuidof(dxSwapChain_), (void**)&(dxSwapChain_));
+		HRESULT hres = swapChain->QueryInterface(__uuidof(pDxSwapChain_), (void**)&(pDxSwapChain_));
 		ThrowIfFailed(hres);
 		swapChain->Release();
 	}
@@ -59,5 +59,5 @@ void SwapChain::Initialize(uint32_t frameCount, uint32_t width, uint32_t height,
 
 HRESULT SwapChain::Present(uint32_t syncInterval, uint32_t flags)
 {
-	return dxSwapChain_->Present(syncInterval, flags);
+	return pDxSwapChain_->Present(syncInterval, flags);
 }

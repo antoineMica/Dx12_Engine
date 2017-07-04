@@ -20,12 +20,12 @@ public:
 	uint32_t renderHeight_;
 
 	//owned
-	IDXGISwapChain4 * dxSwapChain_;
+	IDXGISwapChain4 * pDxSwapChain_;
 
 	//owned by external (wrong)
 	//instead add DX12Renderer ? or global renderer
-	CommandQueue * commandQueue_;
-	DX12Base * dxBase_;
+	CommandQueue * pCommandQueue_;
+	DX12Base * pDxBase_;
 };
 
 

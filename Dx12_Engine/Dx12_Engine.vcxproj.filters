@@ -64,6 +64,9 @@
     <Filter Include="Renderer\RootSignature">
       <UniqueIdentifier>{df6f7e9e-931f-448f-ad14-10e539d4214a}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Renderer\Shader">
+      <UniqueIdentifier>{9b67def1-0a20-406b-a371-655c51536914}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Win32Window.cpp">
@@ -104,6 +107,9 @@
     </ClCompile>
     <ClCompile Include="RootSignature.cpp">
       <Filter>Renderer\RootSignature</Filter>
+    </ClCompile>
+    <ClCompile Include="Shader.cpp">
+      <Filter>Renderer\Shader</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -160,6 +166,9 @@
     </ClInclude>
     <ClInclude Include="RootSignature.h">
       <Filter>Renderer\RootSignature</Filter>
+    </ClInclude>
+    <ClInclude Include="Shader.h">
+      <Filter>Renderer\Shader</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

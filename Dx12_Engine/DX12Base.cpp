@@ -40,8 +40,8 @@ void DX12Base::Initialize()
 	}
 #endif
 
-
-	ThrowIfFailed(CreateDXGIFactory2(dxgiFactoryFlags, __uuidof(dxgiFactory_), (void**)&(dxgiFactory_)));
+	HRESULT hr = CreateDXGIFactory2(dxgiFactoryFlags, __uuidof(dxgiFactory_), (void**)&(dxgiFactory_));
+	assert(SUCCEEDED(hr));
 
 	D3D_FEATURE_LEVEL gpu_feature_levels[MAX_GPUS];
 	for (uint32_t i = 0; i < MAX_GPUS; ++i) {
@@ -70,7 +70,7 @@ void DX12Base::Initialize()
 			adapter->Release();
 		}
 	}
-	//ASSERT(numOfGPUs_ > 0);
+	assert(numOfGPUs_ > 0);
 
 	D3D_FEATURE_LEVEL target_feature_level = D3D_FEATURE_LEVEL_12_1;
 	for (uint32_t i = 0; i < numOfGPUs_; ++i) {
@@ -90,7 +90,7 @@ void DX12Base::Initialize()
 		}
 	}
 
-	//ASSERT(activeGPU != NULL);
+	assert(activeGPU_ != NULL);
 
 
 	// Load functions
