@@ -9,8 +9,8 @@ public:
 	RootSignature();
 	~RootSignature();
 
-	void Initialize(DX12Base * pDxBase);
-
+	void Initialize(DX12Base * pDxBase, uint32_t staticSamplerCount = 0);
+	
 
 	ID3D12RootSignature * pDxRootSig_;
 };

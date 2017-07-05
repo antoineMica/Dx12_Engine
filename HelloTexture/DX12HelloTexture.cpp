@@ -13,6 +13,158 @@
 #include "RootSignature.h"
 #include "Shader.h"
 
+
+//------------------------------------------------------------------------------------------------
+// Row-by-row memcpy
+inline void MemcpySubresource(
+	_In_ const D3D12_MEMCPY_DEST* pDest,
+	_In_ const D3D12_SUBRESOURCE_DATA* pSrc,
+	SIZE_T RowSizeInBytes,
+	UINT NumRows,
+	UINT NumSlices)
+{
+	for (UINT z = 0; z < NumSlices; ++z)
+	{
+		BYTE* pDestSlice = reinterpret_cast<BYTE*>(pDest->pData) + pDest->SlicePitch * z;
+		const BYTE* pSrcSlice = reinterpret_cast<const BYTE*>(pSrc->pData) + pSrc->SlicePitch * z;
+		for (UINT y = 0; y < NumRows; ++y)
+		{
+			memcpy(pDestSlice + pDest->RowPitch * y,
+				pSrcSlice + pSrc->RowPitch * y,
+				RowSizeInBytes);
+		}
+	}
+}
+
+//------------------------------------------------------------------------------------------------
+// Returns required size of a buffer to be used for data upload
+inline UINT64 GetRequiredIntermediateSize(
+	_In_ ID3D12Resource* pDestinationResource,
+	_In_range_(0, D3D12_REQ_SUBRESOURCES) UINT FirstSubresource,
+	_In_range_(0, D3D12_REQ_SUBRESOURCES - FirstSubresource) UINT NumSubresources)
+{
+	D3D12_RESOURCE_DESC Desc = pDestinationResource->GetDesc();
+	UINT64 RequiredSize = 0;
+
+	ID3D12Device* pDevice;
+	pDestinationResource->GetDevice(__uuidof(*pDevice), reinterpret_cast<void**>(&pDevice));
+	pDevice->GetCopyableFootprints(&Desc, FirstSubresource, NumSubresources, 0, nullptr, nullptr, nullptr, &RequiredSize);
+	pDevice->Release();
+
+	return RequiredSize;
+}
+
+//------------------------------------------------------------------------------------------------
+// All arrays must be populated (e.g. by calling GetCopyableFootprints)
+inline UINT64 UpdateSubresources(
+	_In_ ID3D12GraphicsCommandList* pCmdList,
+	_In_ ID3D12Resource* pDestinationResource,
+	_In_ ID3D12Resource* pIntermediate,
+	_In_range_(0, D3D12_REQ_SUBRESOURCES) UINT FirstSubresource,
+	_In_range_(0, D3D12_REQ_SUBRESOURCES - FirstSubresource) UINT NumSubresources,
+	UINT64 RequiredSize,
+	_In_reads_(NumSubresources) const D3D12_PLACED_SUBRESOURCE_FOOTPRINT* pLayouts,
+	_In_reads_(NumSubresources) const UINT* pNumRows,
+	_In_reads_(NumSubresources) const UINT64* pRowSizesInBytes,
+	_In_reads_(NumSubresources) const D3D12_SUBRESOURCE_DATA* pSrcData)
+{
+	// Minor validation
+	D3D12_RESOURCE_DESC IntermediateDesc = pIntermediate->GetDesc();
+	D3D12_RESOURCE_DESC DestinationDesc = pDestinationResource->GetDesc();
+	if (IntermediateDesc.Dimension != D3D12_RESOURCE_DIMENSION_BUFFER ||
+		IntermediateDesc.Width < RequiredSize + pLayouts[0].Offset ||
+		RequiredSize >(SIZE_T) - 1 ||
+		(DestinationDesc.Dimension == D3D12_RESOURCE_DIMENSION_BUFFER &&
+		(FirstSubresource != 0 || NumSubresources != 1)))
+	{
+		return 0;
+	}
+
+	BYTE* pData;
+	HRESULT hr = pIntermediate->Map(0, NULL, reinterpret_cast<void**>(&pData));
+	if (FAILED(hr))
+	{
+		return 0;
+	}
+
+	for (UINT i = 0; i < NumSubresources; ++i)
+	{
+		if (pRowSizesInBytes[i] >(SIZE_T)-1) return 0;
+		D3D12_MEMCPY_DEST DestData = { pData + pLayouts[i].Offset, pLayouts[i].Footprint.RowPitch, pLayouts[i].Footprint.RowPitch * pNumRows[i] };
+		MemcpySubresource(&DestData, &pSrcData[i], (SIZE_T)pRowSizesInBytes[i], pNumRows[i], pLayouts[i].Footprint.Depth);
+	}
+	pIntermediate->Unmap(0, NULL);
+
+	if (DestinationDesc.Dimension == D3D12_RESOURCE_DIMENSION_BUFFER)
+	{
+		D3D12_BOX SrcBox;
+		SrcBox.left = UINT(pLayouts[0].Offset);
+		SrcBox.right = UINT(pLayouts[0].Offset + pLayouts[0].Footprint.Width);
+		SrcBox.top = 0;
+		SrcBox.front = 0;
+		SrcBox.bottom = 1;
+		SrcBox.back = 1;
+
+		pCmdList->CopyBufferRegion(
+			pDestinationResource, 0, pIntermediate, pLayouts[0].Offset, pLayouts[0].Footprint.Width);
+	}
+	else
+	{
+		for (UINT i = 0; i < NumSubresources; ++i)
+		{
+			D3D12_TEXTURE_COPY_LOCATION Dst;
+			Dst.pResource = pDestinationResource;
+			Dst.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+			Dst.SubresourceIndex= i + FirstSubresource;
+
+			D3D12_TEXTURE_COPY_LOCATION Src;
+			Src.pResource = pIntermediate;
+			Src.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
+			Src.PlacedFootprint = pLayouts[i];
+
+			pCmdList->CopyTextureRegion(&Dst, 0, 0, 0, &Src, nullptr);
+		}
+	}
+	return RequiredSize;
+}
+
+//------------------------------------------------------------------------------------------------
+// Heap-allocating UpdateSubresources implementation
+inline UINT64 UpdateSubresources(
+	_In_ ID3D12GraphicsCommandList* pCmdList,
+	_In_ ID3D12Resource* pDestinationResource,
+	_In_ ID3D12Resource* pIntermediate,
+	UINT64 IntermediateOffset,
+	_In_range_(0, D3D12_REQ_SUBRESOURCES) UINT FirstSubresource,
+	_In_range_(0, D3D12_REQ_SUBRESOURCES - FirstSubresource) UINT NumSubresources,
+	_In_reads_(NumSubresources) D3D12_SUBRESOURCE_DATA* pSrcData)
+{
+	UINT64 RequiredSize = 0;
+	UINT64 MemToAlloc = static_cast<UINT64>(sizeof(D3D12_PLACED_SUBRESOURCE_FOOTPRINT) + sizeof(UINT) + sizeof(UINT64)) * NumSubresources;
+	if (MemToAlloc > SIZE_MAX)
+	{
+		return 0;
+	}
+	void* pMem = HeapAlloc(GetProcessHeap(), 0, static_cast<SIZE_T>(MemToAlloc));
+	if (pMem == NULL)
+	{
+		return 0;
+	}
+	D3D12_PLACED_SUBRESOURCE_FOOTPRINT* pLayouts = reinterpret_cast<D3D12_PLACED_SUBRESOURCE_FOOTPRINT*>(pMem);
+	UINT64* pRowSizesInBytes = reinterpret_cast<UINT64*>(pLayouts + NumSubresources);
+	UINT* pNumRows = reinterpret_cast<UINT*>(pRowSizesInBytes + NumSubresources);
+
+	D3D12_RESOURCE_DESC Desc = pDestinationResource->GetDesc();
+	ID3D12Device* pDevice;
+	pDestinationResource->GetDevice(__uuidof(*pDevice), reinterpret_cast<void**>(&pDevice));
+	pDevice->GetCopyableFootprints(&Desc, FirstSubresource, NumSubresources, IntermediateOffset, pLayouts, pNumRows, pRowSizesInBytes, &RequiredSize);
+	pDevice->Release();
+
+	UINT64 Result = UpdateSubresources(pCmdList, pDestinationResource, pIntermediate, FirstSubresource, NumSubresources, RequiredSize, pLayouts, pNumRows, pRowSizesInBytes, pSrcData);
+	HeapFree(GetProcessHeap(), 0, pMem);
+	return Result;
+}
+
 DX12HelloTexture::DX12HelloTexture(float wWidth, float wHeight)
 {
 	frameIndex_ = 0;
@@ -80,12 +232,8 @@ void DX12HelloTexture::Initialize()
 	pCommandAllocator_->Initialize(D3D12_COMMAND_LIST_TYPE_DIRECT, pDxBase_);
 	pGraphicsCommandList_->Initialize(D3D12_COMMAND_LIST_TYPE_DIRECT, pCommandAllocator_,pDxBase_);
 
-	// Command lists are created in the recording state, but there is nothing
-	// to record yet. The main loop expects it to be closed, so close it now.
-	ThrowIfFailed(pGraphicsCommandList_->Close());
-
 	//Initialize basic root signature for now
-	pRootSignature_->Initialize(pDxBase_);
+	pRootSignature_->Initialize(pDxBase_,1);
 
 	// Create the pipeline state, which includes compiling and loading shaders.
 	{
@@ -97,15 +245,25 @@ void DX12HelloTexture::Initialize()
 		UINT compileFlags = 0;
 #endif
 
-		assert(SUCCEEDED(pShader_->CompileVS("../Shaders/shaders.hlsl", "VSMain", "vs_5_0", compileFlags )));
-		assert(SUCCEEDED(pShader_->CompilePS("../Shaders/shaders.hlsl", "PSMain", "ps_5_0", compileFlags )));
+		assert(SUCCEEDED(pShader_->CompileVS("../Shaders/HelloTexture.hlsl", "VSMain", "vs_5_0", compileFlags )));
+		assert(SUCCEEDED(pShader_->CompilePS("../Shaders/HelloTexture.hlsl", "PSMain", "ps_5_0", compileFlags )));
 
 		// Define the vertex input layout.
-		D3D12_INPUT_ELEMENT_DESC inputElementDescs[] =
-		{
-			{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-			{ "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
-		};
+		D3D12_INPUT_ELEMENT_DESC inputElementDescs[2];
+		inputElementDescs[0].SemanticName = "POSITION";
+		inputElementDescs[0].SemanticIndex = 0;
+		inputElementDescs[0].Format = DXGI_FORMAT_R32G32B32_FLOAT;
+		inputElementDescs[0].InputSlot = 0;
+		inputElementDescs[0].AlignedByteOffset = 0;
+		inputElementDescs[0].InputSlotClass = D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA;
+		inputElementDescs[0].InstanceDataStepRate = 0;
+		inputElementDescs[1].SemanticName = "TEXCOORD";
+		inputElementDescs[1].SemanticIndex = 0;
+		inputElementDescs[1].Format = DXGI_FORMAT_R32G32_FLOAT;
+		inputElementDescs[1].InputSlot = 0;
+		inputElementDescs[1].AlignedByteOffset = 12;
+		inputElementDescs[1].InputSlotClass = D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA;
+		inputElementDescs[1].InstanceDataStepRate = 0;
 
 		// Describe and create the graphics pipeline state object (PSO).
 		D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = {};
@@ -154,14 +312,14 @@ void DX12HelloTexture::Initialize()
 	// Create the vertex buffer.
 	{
 		// Define the geometry for a triangle.
-		Vertex triangleVertices[] =
+		std::vector<float> triangleVertices =
 		{
-			{ { 0.0f, 0.25f * (windowWidth_/windowHeight_), 0.0f },{ 0.5f, 0.0f, 0.0f, 1.0f } },
-			{ { 0.25f, -0.25f * (windowWidth_ / windowHeight_), 0.0f },{ 1.0f, 1.0f, 0.0f, 1.0f } },
-			{ { -0.25f, -0.25f * (windowWidth_ / windowHeight_), 0.0f },{ 0.0f, 1.0f, 0.0f, 1.0f } }
+			0.0f, 0.25f * (windowWidth_ / windowHeight_), 0.0f ,0.5f, 0.0f,
+			0.25f, -0.25f * (windowWidth_ / windowHeight_), 0.0f ,1.0f, 1.0f,
+			-0.25f, -0.25f * (windowWidth_ / windowHeight_), 0.0f , 0.0f, 1.0f
 		};
 
-		pVertexBuffer_->Initialize(pDxBase_, triangleVertices, 3);
+		pVertexBuffer_->Initialize(pDxBase_, triangleVertices, 5 * sizeof(float));
 	}
 
 	// Note: ComPtr's are CPU objects but this resource needs to stay in scope until
@@ -184,36 +342,68 @@ void DX12HelloTexture::Initialize()
 		textureDesc.SampleDesc.Quality = 0;
 		textureDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
 
-		ThrowIfFailed(m_device->CreateCommittedResource(
-			&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
+		D3D12_HEAP_PROPERTIES defaultHeapProps;
+		defaultHeapProps.Type = D3D12_HEAP_TYPE_DEFAULT;
+		defaultHeapProps.CreationNodeMask = 1;
+		defaultHeapProps.VisibleNodeMask = 1;
+		defaultHeapProps.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+		defaultHeapProps.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
+
+		ThrowIfFailed(pDxBase_->device_->CreateCommittedResource(
+			&defaultHeapProps,
 			D3D12_HEAP_FLAG_NONE,
 			&textureDesc,
 			D3D12_RESOURCE_STATE_COPY_DEST,
 			nullptr,
-			IID_PPV_ARGS(&m_texture)));
+			__uuidof(pTexture_), (void**)(&pTexture_)));
 
-		const UINT64 uploadBufferSize = GetRequiredIntermediateSize(m_texture.Get(), 0, 1);
+		UINT64 uploadBufferSize = 0;
+		D3D12_RESOURCE_DESC Desc = pTexture_->GetDesc();
+		ID3D12Device* pDevice;
+		pTexture_->GetDevice(__uuidof(*pDevice), reinterpret_cast<void**>(&pDevice));
+		pDevice->GetCopyableFootprints(&Desc, 0, 1, 0, nullptr, nullptr, nullptr, &uploadBufferSize);
+		pDevice->Release();
 
+
+		D3D12_HEAP_PROPERTIES uploadHeap;
+		uploadHeap.Type = D3D12_HEAP_TYPE_UPLOAD;
+		uploadHeap.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
+		uploadHeap.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+		uploadHeap.CreationNodeMask = 1;
+		uploadHeap.VisibleNodeMask = 1;
+
+		D3D12_RESOURCE_DESC uploadBufferDesc;
+		uploadBufferDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+		uploadBufferDesc.Alignment = 0;
+		uploadBufferDesc.Width = uploadBufferSize;
+		uploadBufferDesc.Height = 1;
+		uploadBufferDesc.DepthOrArraySize = 1;
+		uploadBufferDesc.MipLevels = 1;
+		uploadBufferDesc.Format = DXGI_FORMAT_UNKNOWN;
+		uploadBufferDesc.SampleDesc.Count = 1;
+		uploadBufferDesc.SampleDesc.Quality = 0;
+		uploadBufferDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+		uploadBufferDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
 		// Create the GPU upload buffer.
-		ThrowIfFailed(m_device->CreateCommittedResource(
-			&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
+		ThrowIfFailed(pDxBase_->device_->CreateCommittedResource(
+			&uploadHeap,
 			D3D12_HEAP_FLAG_NONE,
-			&CD3DX12_RESOURCE_DESC::Buffer(uploadBufferSize),
+			&uploadBufferDesc,
 			D3D12_RESOURCE_STATE_GENERIC_READ,
 			nullptr,
 			IID_PPV_ARGS(&textureUploadHeap)));
 
 		// Copy data to the intermediate upload heap and then schedule a copy 
 		// from the upload heap to the Texture2D.
-		std::vector<UINT8> texture = GenerateTextureData();
+		std::vector<unsigned char> texture = GenerateTextureData();
 
 		D3D12_SUBRESOURCE_DATA textureData = {};
 		textureData.pData = &texture[0];
 		textureData.RowPitch = TextureWidth * TexturePixelSize;
 		textureData.SlicePitch = textureData.RowPitch * TextureHeight;
 
-		UpdateSubresources(m_commandList.Get(), m_texture.Get(), textureUploadHeap.Get(), 0, 0, 1, &textureData);
-		m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_texture.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE));
+		UpdateSubresources(pGraphicsCommandList_->pDxCmdList_, pTexture_, textureUploadHeap, 0, 0, 1, &textureData);		
+		pGraphicsCommandList_->TransitionBarrier(D3D12_RESOURCE_BARRIER_FLAG_NONE, pTexture_, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 
 		// Describe and create a SRV for the texture.
 		D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
@@ -221,8 +411,15 @@ void DX12HelloTexture::Initialize()
 		srvDesc.Format = textureDesc.Format;
 		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
 		srvDesc.Texture2D.MipLevels = 1;
-		m_device->CreateShaderResourceView(m_texture.Get(), &srvDesc, m_srvHeap->GetCPUDescriptorHandleForHeapStart());
+		pDxBase_->device_->CreateShaderResourceView(pTexture_, &srvDesc, pSrvHeap_->pDxHeap_->GetCPUDescriptorHandleForHeapStart());
 	}
+
+
+	// Command lists are created in the recording state, but there is nothing
+	// to record yet. The main loop expects it to be closed, so close it now.
+	ThrowIfFailed(pGraphicsCommandList_->Close());
+
+	pCmdQueue_->ExecuteCommandList(pGraphicsCommandList_);
 
 	// Create synchronization objects.
 	{
@@ -234,6 +431,20 @@ void DX12HelloTexture::Initialize()
 		WaitForPreviousFrame();
 	}
 	textureUploadHeap->Release();
+
+
+
+	mViewport_.TopLeftX = 0;
+	mViewport_.TopLeftY = 0;
+	mViewport_.Height = windowHeight_;
+	mViewport_.Width = windowWidth_;
+	mViewport_.MinDepth = D3D12_MIN_DEPTH;
+	mViewport_.MaxDepth = D3D12_MAX_DEPTH;
+
+	mScissor_.top = 0;
+	mScissor_.left = 0;
+	mScissor_.bottom = (LONG)windowHeight_;
+	mScissor_.right = (LONG)windowWidth_;
 
 }
 
@@ -299,23 +510,14 @@ void DX12HelloTexture::PopulateCommandList()
 	assert(SUCCEEDED(pGraphicsCommandList_->Reset(pCommandAllocator_, pPipelineStateObject_)));
 
 
-	D3D12_VIEWPORT viewport;
-	viewport.TopLeftX = 0;
-	viewport.TopLeftY = 0;
-	viewport.Height = windowHeight_;
-	viewport.Width = windowWidth_;
-	viewport.MinDepth = D3D12_MIN_DEPTH;
-	viewport.MaxDepth = D3D12_MAX_DEPTH;
-
-	D3D12_RECT scissor;
-	scissor.top = 0;
-	scissor.left= 0;
-	scissor.bottom = (LONG)windowHeight_;
-	scissor.right = (LONG)windowWidth_;
-
 	pGraphicsCommandList_->SetRootSignature(pRootSignature_);
-	pGraphicsCommandList_->SetViewports(1, viewport);
-	pGraphicsCommandList_->SetScissor(1,scissor);
+
+	pGraphicsCommandList_->pDxCmdList_->SetDescriptorHeaps(1, &pSrvHeap_->pDxHeap_);
+	pGraphicsCommandList_->pDxCmdList_->SetGraphicsRootDescriptorTable(0, pSrvHeap_->pDxHeap_->GetGPUDescriptorHandleForHeapStart());
+
+
+	pGraphicsCommandList_->SetViewports(1, mViewport_);
+	pGraphicsCommandList_->SetScissor(1, mScissor_);
 
 	// Indicate that the back buffer will be used as a render target.
 	pGraphicsCommandList_->TransitionBarrier(D3D12_RESOURCE_BARRIER_FLAG_NONE, pRenderTarget_[frameIndex_]->pDxResource_, D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);
@@ -362,15 +564,15 @@ void DX12HelloTexture::WaitForPreviousFrame()
 }
 
 
-std::vector<uint32_t> DX12HelloTexture::GenerateTextureData()
+std::vector<unsigned char> DX12HelloTexture::GenerateTextureData()
 {
 	const UINT rowPitch = TextureWidth * TexturePixelSize;
 	const UINT cellPitch = rowPitch >> 3;		// The width of a cell in the checkboard texture.
 	const UINT cellHeight = TextureWidth >> 3;	// The height of a cell in the checkerboard texture.
 	const UINT textureSize = rowPitch * TextureHeight;
 
-	std::vector<uint32_t> data(textureSize);
-	uint32_t* pData = &data[0];
+	std::vector<unsigned char> data(textureSize);
+	unsigned char* pData = &data[0];
 
 	for (UINT n = 0; n < textureSize; n += TexturePixelSize)
 	{

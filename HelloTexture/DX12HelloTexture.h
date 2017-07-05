@@ -54,6 +54,9 @@ private:
 
 	ID3D12Resource * pTexture_;
 
+	D3D12_VIEWPORT mViewport_;
+	D3D12_RECT mScissor_;
+
 
 	std::uint32_t descriptorHeapSize_;
 	std::uint32_t frameIndex_;
@@ -61,5 +64,5 @@ private:
 	float windowWidth_;
 	float windowHeight_;
 
-	std::vector<uint32_t> GenerateTextureData();
+	std::vector<unsigned char> GenerateTextureData();
 };

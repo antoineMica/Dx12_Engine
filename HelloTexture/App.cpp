@@ -42,3 +42,17 @@ void App::Shutdown()
 	delete pInputSystem;
 	delete pRenderer;
 }
+
+
+int WINAPI WinMain(HINSTANCE instance, HINSTANCE hPreviousInstance, LPSTR, int show)
+{
+
+	App * pApp = new App();
+
+	pApp->Initialize();
+
+	pApp->Update(0.032f);
+
+	pApp->Shutdown();
+
+}

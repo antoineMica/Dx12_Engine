@@ -2,7 +2,6 @@
 #include "DX12Base.h"
 
 
-
 VertexBuffer::VertexBuffer()
 {
 }
@@ -15,7 +14,7 @@ VertexBuffer::~VertexBuffer()
 }
 
 
-void VertexBuffer::Initialize(DX12Base * pDxBase, Vertex* vertices, uint32_t mVerticesSize)
+void VertexBuffer::Initialize(DX12Base * pDxBase, std::vector<float> vertices, uint32_t strideInBytes)
 {
 	//default heap description for vert buffer
 	mHeapProps_.Type = D3D12_HEAP_TYPE_UPLOAD;
@@ -26,7 +25,7 @@ void VertexBuffer::Initialize(DX12Base * pDxBase, Vertex* vertices, uint32_t mVe
 
 	mResourceDesc_.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
 	mResourceDesc_.Alignment = 0;
-	mResourceDesc_.Width = mVerticesSize * sizeof(Vertex);
+	mResourceDesc_.Width = vertices.size()* sizeof(float);
 	mResourceDesc_.Height = 1;
 	mResourceDesc_.DepthOrArraySize = 1;
 	mResourceDesc_.MipLevels = 1;
@@ -57,11 +56,11 @@ void VertexBuffer::Initialize(DX12Base * pDxBase, Vertex* vertices, uint32_t mVe
 	readRange.Begin = 0;		// We do not intend to read from this resource on the CPU.
 	readRange.End = 0;
 	ThrowIfFailed(pDxResource_->Map(0, &readRange, reinterpret_cast<void**>(&pVertexDataBegin)));
-	memcpy(pVertexDataBegin, vertices, mVerticesSize * sizeof(Vertex));
+	memcpy(pVertexDataBegin, &vertices[0], vertices.size() * sizeof(float));
 	pDxResource_->Unmap(0, nullptr);
 
 	// Initialize the vertex buffer view.
 	mBufferView_.BufferLocation = pDxResource_->GetGPUVirtualAddress();
-	mBufferView_.StrideInBytes = sizeof(Vertex);
-	mBufferView_.SizeInBytes = mVerticesSize * sizeof(Vertex);
+	mBufferView_.StrideInBytes = strideInBytes;
+	mBufferView_.SizeInBytes = vertices.size() * sizeof(float);
 }

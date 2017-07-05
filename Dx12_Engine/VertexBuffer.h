@@ -3,20 +3,15 @@
 
 class DX12Base;
 
-typedef struct Vertex
-{
-	DirectX::XMFLOAT3 position;
-	DirectX::XMFLOAT4 color;
-}Vertex;
-
 class VertexBuffer
 {
 public:
 	VertexBuffer();
 	~VertexBuffer();
 
-	void Initialize(DX12Base * pDxBase, Vertex* vertices,uint32_t mVertexCount);
+	void Initialize(DX12Base * pDxBase, std::vector<float> vertices, uint32_t strideInBytes);
 
+	uint32_t mStrideInBytes_;
 
 	D3D12_HEAP_PROPERTIES mHeapProps_;
 	D3D12_RESOURCE_DESC mResourceDesc_;

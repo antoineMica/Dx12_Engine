@@ -9,7 +9,7 @@ CommandQueue::CommandQueue()
 	mQueueDesc_.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
 	mQueueDesc_.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
 	mQueueDesc_.Priority = D3D12_COMMAND_QUEUE_PRIORITY_NORMAL;
-	mQueueDesc_.NodeMask = 0;
+	mQueueDesc_.NodeMask = 1;
 }
 
 

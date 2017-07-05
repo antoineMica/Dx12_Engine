@@ -9,7 +9,7 @@ DescriptorHeap::DescriptorHeap()
 	mDescHeap_.NumDescriptors = 0;
 	mDescHeap_.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
 	mDescHeap_.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-	mDescHeap_.NodeMask = 0;
+	mDescHeap_.NodeMask = 1;
 }
 
 

@@ -89,15 +89,26 @@ void DX12Renderer::Initialize()
 		UINT compileFlags = 0;
 #endif
 
-		assert(SUCCEEDED(pShader_->CompileVS("../Shaders/shaders.hlsl", "VSMain", "vs_5_0", compileFlags )));
-		assert(SUCCEEDED(pShader_->CompilePS("../Shaders/shaders.hlsl", "PSMain", "ps_5_0", compileFlags )));
+		assert(SUCCEEDED(pShader_->CompileVS("../Shaders/HelloWorld.hlsl", "VSMain", "vs_5_0", compileFlags )));
+		assert(SUCCEEDED(pShader_->CompilePS("../Shaders/HelloWorld.hlsl", "PSMain", "ps_5_0", compileFlags )));
 
-		// Define the vertex input layout.
-		D3D12_INPUT_ELEMENT_DESC inputElementDescs[] =
-		{
-			{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-			{ "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
-		};
+		
+		D3D12_INPUT_ELEMENT_DESC inputElementDescs[2];
+		inputElementDescs[0].SemanticName = "POSITION";
+		inputElementDescs[0].SemanticIndex = 0;
+		inputElementDescs[0].Format = DXGI_FORMAT_R32G32B32_FLOAT;
+		inputElementDescs[0].InputSlot = 0;
+		inputElementDescs[0].AlignedByteOffset = 0;
+		inputElementDescs[0].InputSlotClass = D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA;
+		inputElementDescs[0].InstanceDataStepRate = 0;
+		inputElementDescs[1].SemanticName = "COLOR";
+		inputElementDescs[1].SemanticIndex = 0;
+		inputElementDescs[1].Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
+		inputElementDescs[1].InputSlot = 0;
+		inputElementDescs[1].AlignedByteOffset = 12;
+		inputElementDescs[1].InputSlotClass = D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA;
+		inputElementDescs[1].InstanceDataStepRate = 0;
+
 
 		// Describe and create the graphics pipeline state object (PSO).
 		D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = {};
@@ -146,14 +157,14 @@ void DX12Renderer::Initialize()
 	// Create the vertex buffer.
 	{
 		// Define the geometry for a triangle.
-		Vertex triangleVertices[] =
+		std::vector<float> triangleVertices =
 		{
-			{ { 0.0f, 0.25f * (windowWidth_/windowHeight_), 0.0f },{ 1.0f, 0.0f, 0.0f, 1.0f } },
-			{ { 0.25f, -0.25f * (windowWidth_ / windowHeight_), 0.0f },{ 0.0f, 1.0f, 0.0f, 1.0f } },
-			{ { -0.25f, -0.25f * (windowWidth_ / windowHeight_), 0.0f },{ 0.0f, 0.0f, 1.0f, 1.0f } }
+		 0.0f, 0.25f * (windowWidth_/windowHeight_), 0.0f ,1.0f, 0.0f, 0.0f, 1.0f,
+		 0.25f, -0.25f * (windowWidth_ / windowHeight_), 0.0f , 0.0f, 1.0f, 0.0f, 1.0f,
+		 -0.25f, -0.25f * (windowWidth_ / windowHeight_), 0.0f , 0.0f, 0.0f, 1.0f, 1.0f 
 		};
 
-		pVertexBuffer_->Initialize(pDxBase_, triangleVertices, 3);
+		pVertexBuffer_->Initialize(pDxBase_, triangleVertices, 7 * sizeof(float));
 	}
 
 
