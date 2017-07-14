@@ -89,8 +89,8 @@ void DX12Renderer::Initialize()
 		UINT compileFlags = 0;
 #endif
 
-		assert(SUCCEEDED(pShader_->CompileVS("../Shaders/HelloWorld.hlsl", "VSMain", "vs_5_0", compileFlags )));
-		assert(SUCCEEDED(pShader_->CompilePS("../Shaders/HelloWorld.hlsl", "PSMain", "ps_5_0", compileFlags )));
+		assert(SUCCEEDED(pShader_->CompileVS("../../Shaders/HelloWorld.hlsl", "VSMain", "vs_5_0", compileFlags )));
+		assert(SUCCEEDED(pShader_->CompilePS("../../Shaders/HelloWorld.hlsl", "PSMain", "ps_5_0", compileFlags )));
 
 		
 		D3D12_INPUT_ELEMENT_DESC inputElementDescs[2];

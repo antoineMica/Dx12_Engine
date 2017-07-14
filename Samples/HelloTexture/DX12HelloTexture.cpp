@@ -94,8 +94,8 @@ void DX12HelloTexture::Initialize()
 		UINT compileFlags = 0;
 #endif
 
-		assert(SUCCEEDED(pShader_->CompileVS("../Shaders/HelloTexture.hlsl", "VSMain", "vs_5_0", compileFlags )));
-		assert(SUCCEEDED(pShader_->CompilePS("../Shaders/HelloTexture.hlsl", "PSMain", "ps_5_0", compileFlags )));
+		assert(SUCCEEDED(pShader_->CompileVS("../../Shaders/HelloTexture.hlsl", "VSMain", "vs_5_0", compileFlags )));
+		assert(SUCCEEDED(pShader_->CompilePS("../../Shaders/HelloTexture.hlsl", "PSMain", "ps_5_0", compileFlags )));
 
 		// Define the vertex input layout.
 		D3D12_INPUT_ELEMENT_DESC inputElementDescs[2];
