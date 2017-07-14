@@ -14,157 +14,6 @@
 #include "Shader.h"
 
 
-//------------------------------------------------------------------------------------------------
-// Row-by-row memcpy
-inline void MemcpySubresource(
-	_In_ const D3D12_MEMCPY_DEST* pDest,
-	_In_ const D3D12_SUBRESOURCE_DATA* pSrc,
-	SIZE_T RowSizeInBytes,
-	UINT NumRows,
-	UINT NumSlices)
-{
-	for (UINT z = 0; z < NumSlices; ++z)
-	{
-		BYTE* pDestSlice = reinterpret_cast<BYTE*>(pDest->pData) + pDest->SlicePitch * z;
-		const BYTE* pSrcSlice = reinterpret_cast<const BYTE*>(pSrc->pData) + pSrc->SlicePitch * z;
-		for (UINT y = 0; y < NumRows; ++y)
-		{
-			memcpy(pDestSlice + pDest->RowPitch * y,
-				pSrcSlice + pSrc->RowPitch * y,
-				RowSizeInBytes);
-		}
-	}
-}
-
-//------------------------------------------------------------------------------------------------
-// Returns required size of a buffer to be used for data upload
-inline UINT64 GetRequiredIntermediateSize(
-	_In_ ID3D12Resource* pDestinationResource,
-	_In_range_(0, D3D12_REQ_SUBRESOURCES) UINT FirstSubresource,
-	_In_range_(0, D3D12_REQ_SUBRESOURCES - FirstSubresource) UINT NumSubresources)
-{
-	D3D12_RESOURCE_DESC Desc = pDestinationResource->GetDesc();
-	UINT64 RequiredSize = 0;
-
-	ID3D12Device* pDevice;
-	pDestinationResource->GetDevice(__uuidof(*pDevice), reinterpret_cast<void**>(&pDevice));
-	pDevice->GetCopyableFootprints(&Desc, FirstSubresource, NumSubresources, 0, nullptr, nullptr, nullptr, &RequiredSize);
-	pDevice->Release();
-
-	return RequiredSize;
-}
-
-//------------------------------------------------------------------------------------------------
-// All arrays must be populated (e.g. by calling GetCopyableFootprints)
-inline UINT64 UpdateSubresources(
-	_In_ ID3D12GraphicsCommandList* pCmdList,
-	_In_ ID3D12Resource* pDestinationResource,
-	_In_ ID3D12Resource* pIntermediate,
-	_In_range_(0, D3D12_REQ_SUBRESOURCES) UINT FirstSubresource,
-	_In_range_(0, D3D12_REQ_SUBRESOURCES - FirstSubresource) UINT NumSubresources,
-	UINT64 RequiredSize,
-	_In_reads_(NumSubresources) const D3D12_PLACED_SUBRESOURCE_FOOTPRINT* pLayouts,
-	_In_reads_(NumSubresources) const UINT* pNumRows,
-	_In_reads_(NumSubresources) const UINT64* pRowSizesInBytes,
-	_In_reads_(NumSubresources) const D3D12_SUBRESOURCE_DATA* pSrcData)
-{
-	// Minor validation
-	D3D12_RESOURCE_DESC IntermediateDesc = pIntermediate->GetDesc();
-	D3D12_RESOURCE_DESC DestinationDesc = pDestinationResource->GetDesc();
-	if (IntermediateDesc.Dimension != D3D12_RESOURCE_DIMENSION_BUFFER ||
-		IntermediateDesc.Width < RequiredSize + pLayouts[0].Offset ||
-		RequiredSize >(SIZE_T) - 1 ||
-		(DestinationDesc.Dimension == D3D12_RESOURCE_DIMENSION_BUFFER &&
-		(FirstSubresource != 0 || NumSubresources != 1)))
-	{
-		return 0;
-	}
-
-	BYTE* pData;
-	HRESULT hr = pIntermediate->Map(0, NULL, reinterpret_cast<void**>(&pData));
-	if (FAILED(hr))
-	{
-		return 0;
-	}
-
-	for (UINT i = 0; i < NumSubresources; ++i)
-	{
-		if (pRowSizesInBytes[i] >(SIZE_T)-1) return 0;
-		D3D12_MEMCPY_DEST DestData = { pData + pLayouts[i].Offset, pLayouts[i].Footprint.RowPitch, pLayouts[i].Footprint.RowPitch * pNumRows[i] };
-		MemcpySubresource(&DestData, &pSrcData[i], (SIZE_T)pRowSizesInBytes[i], pNumRows[i], pLayouts[i].Footprint.Depth);
-	}
-	pIntermediate->Unmap(0, NULL);
-
-	if (DestinationDesc.Dimension == D3D12_RESOURCE_DIMENSION_BUFFER)
-	{
-		D3D12_BOX SrcBox;
-		SrcBox.left = UINT(pLayouts[0].Offset);
-		SrcBox.right = UINT(pLayouts[0].Offset + pLayouts[0].Footprint.Width);
-		SrcBox.top = 0;
-		SrcBox.front = 0;
-		SrcBox.bottom = 1;
-		SrcBox.back = 1;
-
-		pCmdList->CopyBufferRegion(
-			pDestinationResource, 0, pIntermediate, pLayouts[0].Offset, pLayouts[0].Footprint.Width);
-	}
-	else
-	{
-		for (UINT i = 0; i < NumSubresources; ++i)
-		{
-			D3D12_TEXTURE_COPY_LOCATION Dst;
-			Dst.pResource = pDestinationResource;
-			Dst.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
-			Dst.SubresourceIndex= i + FirstSubresource;
-
-			D3D12_TEXTURE_COPY_LOCATION Src;
-			Src.pResource = pIntermediate;
-			Src.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
-			Src.PlacedFootprint = pLayouts[i];
-
-			pCmdList->CopyTextureRegion(&Dst, 0, 0, 0, &Src, nullptr);
-		}
-	}
-	return RequiredSize;
-}
-
-//------------------------------------------------------------------------------------------------
-// Heap-allocating UpdateSubresources implementation
-inline UINT64 UpdateSubresources(
-	_In_ ID3D12GraphicsCommandList* pCmdList,
-	_In_ ID3D12Resource* pDestinationResource,
-	_In_ ID3D12Resource* pIntermediate,
-	UINT64 IntermediateOffset,
-	_In_range_(0, D3D12_REQ_SUBRESOURCES) UINT FirstSubresource,
-	_In_range_(0, D3D12_REQ_SUBRESOURCES - FirstSubresource) UINT NumSubresources,
-	_In_reads_(NumSubresources) D3D12_SUBRESOURCE_DATA* pSrcData)
-{
-	UINT64 RequiredSize = 0;
-	UINT64 MemToAlloc = static_cast<UINT64>(sizeof(D3D12_PLACED_SUBRESOURCE_FOOTPRINT) + sizeof(UINT) + sizeof(UINT64)) * NumSubresources;
-	if (MemToAlloc > SIZE_MAX)
-	{
-		return 0;
-	}
-	void* pMem = HeapAlloc(GetProcessHeap(), 0, static_cast<SIZE_T>(MemToAlloc));
-	if (pMem == NULL)
-	{
-		return 0;
-	}
-	D3D12_PLACED_SUBRESOURCE_FOOTPRINT* pLayouts = reinterpret_cast<D3D12_PLACED_SUBRESOURCE_FOOTPRINT*>(pMem);
-	UINT64* pRowSizesInBytes = reinterpret_cast<UINT64*>(pLayouts + NumSubresources);
-	UINT* pNumRows = reinterpret_cast<UINT*>(pRowSizesInBytes + NumSubresources);
-
-	D3D12_RESOURCE_DESC Desc = pDestinationResource->GetDesc();
-	ID3D12Device* pDevice;
-	pDestinationResource->GetDevice(__uuidof(*pDevice), reinterpret_cast<void**>(&pDevice));
-	pDevice->GetCopyableFootprints(&Desc, FirstSubresource, NumSubresources, IntermediateOffset, pLayouts, pNumRows, pRowSizesInBytes, &RequiredSize);
-	pDevice->Release();
-
-	UINT64 Result = UpdateSubresources(pCmdList, pDestinationResource, pIntermediate, FirstSubresource, NumSubresources, RequiredSize, pLayouts, pNumRows, pRowSizesInBytes, pSrcData);
-	HeapFree(GetProcessHeap(), 0, pMem);
-	return Result;
-}
-
 DX12HelloTexture::DX12HelloTexture(float wWidth, float wHeight)
 {
 	frameIndex_ = 0;
@@ -402,7 +251,36 @@ void DX12HelloTexture::Initialize()
 		textureData.RowPitch = TextureWidth * TexturePixelSize;
 		textureData.SlicePitch = textureData.RowPitch * TextureHeight;
 
-		UpdateSubresources(pGraphicsCommandList_->pDxCmdList_, pTexture_, textureUploadHeap, 0, 0, 1, &textureData);		
+
+		uint32_t textureByteSize = texture.size() * sizeof(unsigned char);
+
+		D3D12_PLACED_SUBRESOURCE_FOOTPRINT layout = {};
+		layout.Offset = 0;
+		layout.Footprint.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+		layout.Footprint.Width = TextureWidth;
+		layout.Footprint.Height = TextureHeight;
+		layout.Footprint.Depth = 1;
+		layout.Footprint.RowPitch = TextureWidth * TexturePixelSize;
+
+		D3D12_TEXTURE_COPY_LOCATION src = {};
+		src.pResource = textureUploadHeap;
+		src.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
+		src.PlacedFootprint = layout;
+		D3D12_TEXTURE_COPY_LOCATION dst = {};
+		dst.pResource = pTexture_;
+		dst.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+		dst.SubresourceIndex = 0;
+
+		void * cpuMappedAddress = NULL;
+		D3D12_RANGE read_range = { 0, 0 };
+		HRESULT hres = textureUploadHeap->Map(0, &read_range, (void**)&(cpuMappedAddress));
+		//Updates texture data using an upload buffer as intermediate (necessary) 
+		//Update upload buffer with newly created texture data
+		memcpy(cpuMappedAddress, &texture[0], textureByteSize);
+		textureUploadHeap->Unmap(0, &read_range);
+
+		pGraphicsCommandList_->pDxCmdList_->CopyTextureRegion(&dst, 0, 0, 0, &src, NULL);
+
 		pGraphicsCommandList_->TransitionBarrier(D3D12_RESOURCE_BARRIER_FLAG_NONE, pTexture_, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 
 		// Describe and create a SRV for the texture.
