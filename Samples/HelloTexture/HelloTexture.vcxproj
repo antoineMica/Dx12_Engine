@@ -79,7 +79,7 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <IncludePath>E:\Google Drive\Dx12_Engine\Dx12_Engine;$(IncludePath)</IncludePath>
-    <LibraryPath>E:\Google Drive\Dx12_Engine\x64\Debug;$(LibraryPath)</LibraryPath>
+    <LibraryPath>E:\Google Drive\Dx12_Engine\x64\Release;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <IncludePath>E:\Google Drive\Dx12_Engine\Dx12_Engine;$(IncludePath)</IncludePath>

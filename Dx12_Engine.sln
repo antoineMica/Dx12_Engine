@@ -5,15 +5,21 @@ VisualStudioVersion = 15.0.26430.14
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Dx12_Engine", "Dx12_Engine\Dx12_Engine.vcxproj", "{2330E4D1-7B98-482C-B9B2-D0A8CD952CEC}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "HelloWorldTriangle", "HelloWorldTriangle\HelloWorldTriangle.vcxproj", "{8D42CFA8-C596-424F-85CC-A839F92A6D25}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "HelloWorldTriangle", "Samples\HelloWorldTriangle\HelloWorldTriangle.vcxproj", "{8D42CFA8-C596-424F-85CC-A839F92A6D25}"
 	ProjectSection(ProjectDependencies) = postProject
 		{2330E4D1-7B98-482C-B9B2-D0A8CD952CEC} = {2330E4D1-7B98-482C-B9B2-D0A8CD952CEC}
 	EndProjectSection
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "HelloTexture", "HelloTexture\HelloTexture.vcxproj", "{12CF3E96-0EC3-4A2D-91FF-D62979C6CC01}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "HelloTexture", "Samples\HelloTexture\HelloTexture.vcxproj", "{12CF3E96-0EC3-4A2D-91FF-D62979C6CC01}"
 	ProjectSection(ProjectDependencies) = postProject
 		{2330E4D1-7B98-482C-B9B2-D0A8CD952CEC} = {2330E4D1-7B98-482C-B9B2-D0A8CD952CEC}
 	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Samples", "Samples", "{5C07169C-21D3-45FB-9647-6D1D8A6832F9}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Renderer", "Renderer", "{1DA62903-B889-499F-9755-DA4195531C32}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "HelloFullscreen", "Samples\HelloFullscreen\HelloFullscreen.vcxproj", "{C0F5B2B8-2511-41F3-BC0B-964E8ABACB73}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -47,8 +53,22 @@ Global
 		{12CF3E96-0EC3-4A2D-91FF-D62979C6CC01}.Release|x64.Build.0 = Release|x64
 		{12CF3E96-0EC3-4A2D-91FF-D62979C6CC01}.Release|x86.ActiveCfg = Release|Win32
 		{12CF3E96-0EC3-4A2D-91FF-D62979C6CC01}.Release|x86.Build.0 = Release|Win32
+		{C0F5B2B8-2511-41F3-BC0B-964E8ABACB73}.Debug|x64.ActiveCfg = Debug|x64
+		{C0F5B2B8-2511-41F3-BC0B-964E8ABACB73}.Debug|x64.Build.0 = Debug|x64
+		{C0F5B2B8-2511-41F3-BC0B-964E8ABACB73}.Debug|x86.ActiveCfg = Debug|Win32
+		{C0F5B2B8-2511-41F3-BC0B-964E8ABACB73}.Debug|x86.Build.0 = Debug|Win32
+		{C0F5B2B8-2511-41F3-BC0B-964E8ABACB73}.Release|x64.ActiveCfg = Release|x64
+		{C0F5B2B8-2511-41F3-BC0B-964E8ABACB73}.Release|x64.Build.0 = Release|x64
+		{C0F5B2B8-2511-41F3-BC0B-964E8ABACB73}.Release|x86.ActiveCfg = Release|Win32
+		{C0F5B2B8-2511-41F3-BC0B-964E8ABACB73}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{2330E4D1-7B98-482C-B9B2-D0A8CD952CEC} = {1DA62903-B889-499F-9755-DA4195531C32}
+		{8D42CFA8-C596-424F-85CC-A839F92A6D25} = {5C07169C-21D3-45FB-9647-6D1D8A6832F9}
+		{12CF3E96-0EC3-4A2D-91FF-D62979C6CC01} = {5C07169C-21D3-45FB-9647-6D1D8A6832F9}
+		{C0F5B2B8-2511-41F3-BC0B-964E8ABACB73} = {5C07169C-21D3-45FB-9647-6D1D8A6832F9}
 	EndGlobalSection
 EndGlobal
